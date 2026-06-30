@@ -1,0 +1,18 @@
+# LICENSE
+
+## PRIVATE & PROPRIETARY LICENSE
+
+**Copyright (c) 2026 Scoutly. All rights reserved.**
+
+This software and all associated documentation files (the "Software") are private, confidential, and proprietary to the owner of Scoutly. 
+
+### 1. RESTRICTIONS
+
+* **No Open Source:** This Software is NOT open source. It is licensed strictly for private, internal, and proprietary use.
+* **No Distribution:** You may not sell, resell, lease, rent, redistribute, sub-license, or otherwise make this Software available to third parties.
+* **No Public Hosting:** You may not publish or host the source code of this Software on any public repository (such as public GitHub repositories).
+* **Confidentiality:** The source code, design patterns, and architecture of this Software are trade secrets and must be kept strictly confidential.
+
+### 2. LIABILITY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

@@ -8,7 +8,6 @@ import {
   Plus, 
   CheckCircle, 
   BrainCircuit, 
-  Sparkles, 
   Loader2, 
   ArrowRight,
   ThumbsUp,
@@ -33,11 +32,17 @@ interface CompanyProfile {
   brandVoice: string;
 }
 
+interface ProspectingArea {
+  countries: string[];
+  states: string[];
+  cities: string;
+}
+
 interface Campaign {
   id: string;
   name: string;
   segment: string;
-  region: string;
+  prospectingArea: ProspectingArea;
   language: string;
   targetProduct: string;
   limitDaily: number;
@@ -64,7 +69,10 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState({
     openai: localStorage.getItem('scoutly_openai_key') || '',
     gemini: localStorage.getItem('scoutly_gemini_key') || '',
-    anthropic: localStorage.getItem('scoutly_anthropic_key') || ''
+    anthropic: localStorage.getItem('scoutly_anthropic_key') || '',
+    apollo: localStorage.getItem('scoutly_apollo_key') || '',
+    hunter: localStorage.getItem('scoutly_hunter_key') || '',
+    resend: localStorage.getItem('scoutly_resend_key') || ''
   });
 
   const saveApiKeys = (e: React.FormEvent) => {
@@ -72,6 +80,9 @@ export default function App() {
     localStorage.setItem('scoutly_openai_key', apiKeys.openai);
     localStorage.setItem('scoutly_gemini_key', apiKeys.gemini);
     localStorage.setItem('scoutly_anthropic_key', apiKeys.anthropic);
+    localStorage.setItem('scoutly_apollo_key', apiKeys.apollo);
+    localStorage.setItem('scoutly_hunter_key', apiKeys.hunter);
+    localStorage.setItem('scoutly_resend_key', apiKeys.resend);
     alert('Chaves de API salvas localmente!');
   };
 
@@ -102,12 +113,26 @@ export default function App() {
     targetBuyer: ''
   });
 
+  // --- GEO-TARGETING DATA ---
+  const COUNTRY_DATA: Record<string, { label: string; flag: string; states: string[] }> = {
+    BR: { label: 'Brasil', flag: '🇧🇷', states: ['Acre','Alagoas','Amapá','Amazonas','Bahia','Ceará','Distrito Federal','Espírito Santo','Goiás','Maranhão','Mato Grosso','Mato Grosso do Sul','Minas Gerais','Pará','Paraíba','Paraná','Pernambuco','Piauí','Rio de Janeiro','Rio Grande do Norte','Rio Grande do Sul','Rondônia','Roraima','Santa Catarina','São Paulo','Sergipe','Tocantins'] },
+    US: { label: 'Estados Unidos', flag: '🇺🇸', states: ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'] },
+    ES: { label: 'Espanha', flag: '🇪🇸', states: ['Andaluzia','Aragão','Astúrias','Ilhas Baleares','Canárias','Cantábria','Castela e Leão','Castela-La Mancha','Catalunha','Extremadura','Galícia','La Rioja','Comunidade de Madrid','Região de Múrcia','Navarra','País Basco','Comunidade Valenciana'] },
+    PT: { label: 'Portugal', flag: '🇵🇹', states: ['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira'] },
+    GB: { label: 'Reino Unido', flag: '🇬🇧', states: ['Inglaterra','Escócia','País de Gales','Irlanda do Norte'] },
+    DE: { label: 'Alemanha', flag: '🇩🇪', states: ['Baden-Württemberg','Baviera','Berlim','Brandenburgo','Bremen','Hamburgo','Hesse','Mecklemburgo-Pomerânia Ocidental','Baixa Saxônia','Renânia do Norte-Vestfália','Renânia-Palatinado','Sarre','Saxônia','Saxônia-Anhalt','Schleswig-Holstein','Turíngia'] },
+    FR: { label: 'França', flag: '🇫🇷', states: ['Île-de-France','Occitânia','Auvérnia-Ródano-Alpes','Nouvelle-Aquitaine','Hauts-de-France','Bretanha','Normandia','Pays de la Loire','Grand Est','Provença-Alpes-Costa Azul','Borgonha-Franco-Condado','Centro-Vale do Loire','Córsega'] },
+    MX: { label: 'México', flag: '🇲🇽', states: ['Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua','Cidade do México','Coahuila','Colima','Durango','Guanajuato','Guerrero','Hidalgo','Jalisco','Estado do México','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo','San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'] },
+    AR: { label: 'Argentina', flag: '🇦🇷', states: ['Buenos Aires','CABA','Catamarca','Chaco','Chubut','Córdoba','Corrientes','Entre Ríos','Formosa','Jujuy','La Pampa','La Rioja','Mendoza','Misiones','Neuquén','Río Negro','Salta','San Juan','San Luis','Santa Cruz','Santa Fe','Santiago del Estero','Terra do Fogo','Tucumán'] },
+    CO: { label: 'Colômbia', flag: '🇨🇴', states: ['Bogotá','Antioquia','Atlântico','Bolívar','Boyacá','Caldas','Caquetá','Cauca','Cesar','Córdoba','Cundinamarca','Chocó','Huila','La Guajira','Magdalena','Meta','Nariño','Norte de Santander','Quindío','Risaralda','Santander','Sucre','Tolima','Valle del Cauca'] },
+  };
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([
     {
       id: 'c1',
       name: 'Prospecção - Clínicas Médicas SP',
       segment: 'Clínicas Médicas / Estética',
-      region: 'São Paulo, Brasil',
+      prospectingArea: { countries: ['BR'], states: ['São Paulo'], cities: 'São Paulo, Campinas' },
       language: 'Português',
       targetProduct: 'Scoutly Agent Core',
       limitDaily: 50,
@@ -119,7 +144,7 @@ export default function App() {
       id: 'c2',
       name: 'SaaS Startups - US Outreach',
       segment: 'Startups de Software B2B',
-      region: 'Estados Unidos',
+      prospectingArea: { countries: ['US'], states: [], cities: '' },
       language: 'Inglês',
       targetProduct: 'Scoutly Agent Core',
       limitDaily: 100,
@@ -132,11 +157,61 @@ export default function App() {
   const [newCampaign, setNewCampaign] = useState<Omit<Campaign, 'id' | 'status' | 'progress' | 'currentStep'>>({
     name: '',
     segment: '',
-    region: '',
+    prospectingArea: { countries: [], states: [], cities: '' },
     language: 'Português',
     targetProduct: 'Scoutly Agent Core',
     limitDaily: 50
   });
+
+  // Derive available states from selected countries
+  const availableStates = newCampaign.prospectingArea.countries.flatMap(c => COUNTRY_DATA[c]?.states ?? []);
+
+  const toggleCountry = (code: string) => {
+    const current = newCampaign.prospectingArea.countries;
+    const updated = current.includes(code) ? current.filter(c => c !== code) : [...current, code];
+    // Reset states that no longer belong to selected countries
+    const validStates = newCampaign.prospectingArea.states.filter(s =>
+      updated.flatMap(cc => COUNTRY_DATA[cc]?.states ?? []).includes(s)
+    );
+    
+    // Auto-detect default language from selected countries
+    let autoLanguage = newCampaign.language;
+    if (updated.length > 0) {
+      const primaryCountry = updated[0];
+      if (primaryCountry === 'US' || primaryCountry === 'GB') {
+        autoLanguage = 'Inglês';
+      } else if (primaryCountry === 'ES' || primaryCountry === 'MX' || primaryCountry === 'AR' || primaryCountry === 'CO') {
+        autoLanguage = 'Espanhol';
+      } else if (primaryCountry === 'PT' || primaryCountry === 'BR') {
+        autoLanguage = 'Português';
+      } else if (primaryCountry === 'DE') {
+        autoLanguage = 'Alemão';
+      } else if (primaryCountry === 'FR') {
+        autoLanguage = 'Francês';
+      }
+    }
+    
+    setNewCampaign({ 
+      ...newCampaign, 
+      language: autoLanguage,
+      prospectingArea: { ...newCampaign.prospectingArea, countries: updated, states: validStates } 
+    });
+  };
+
+  const toggleState = (state: string) => {
+    const current = newCampaign.prospectingArea.states;
+    const updated = current.includes(state) ? current.filter(s => s !== state) : [...current, state];
+    setNewCampaign({ ...newCampaign, prospectingArea: { ...newCampaign.prospectingArea, states: updated } });
+  };
+
+  const buildRegionLabel = (area: ProspectingArea): string => {
+    const countryLabels = area.countries.map(c => COUNTRY_DATA[c]?.label ?? c);
+    const parts: string[] = [];
+    if (countryLabels.length) parts.push(countryLabels.join(', '));
+    if (area.states.length) parts.push(`• ${area.states.join(', ')}`);
+    if (area.cities.trim()) parts.push(`• ${area.cities}`);
+    return parts.join(' ');
+  };
 
   const [leads, setLeads] = useState<Lead[]>([
     {
@@ -174,17 +249,135 @@ export default function App() {
     }
   ]);
 
+  // --- API BACKEND SYNC AND LOADERS ---
+  const API_BASE = '/api';
+
+  useEffect(() => {
+    // Load Company Profile
+    fetch(`${API_BASE}/profile`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.company_name) {
+          setCompanyProfile({
+            name: data.company_name,
+            industry: data.industry,
+            description: data.description,
+            valueProposition: data.value_proposition,
+            targetAudience: data.target_audience,
+            brandVoice: data.brand_voice
+          });
+        }
+      })
+      .catch(() => console.log('Using local fallback profile data'));
+
+    // Load Products
+    fetch(`${API_BASE}/products`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data.map(p => ({
+            id: String(p.id),
+            name: p.name,
+            description: p.description,
+            features: Array.isArray(p.features) ? p.features.join(', ') : (p.features || ''),
+            targetBuyer: p.target_buyer || ''
+          })));
+        }
+      })
+      .catch(() => console.log('Using local fallback products catalog'));
+
+    // Load Campaigns
+    fetch(`${API_BASE}/campaigns`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCampaigns(data.map(c => ({
+            id: String(c.id),
+            name: c.name,
+            segment: c.segment,
+            prospectingArea: {
+              countries: c.countries || [],
+              states: c.states || [],
+              cities: c.cities || ''
+            },
+            language: c.language,
+            targetProduct: c.target_product ? c.target_product.name : 'Scoutly Agent Core',
+            limitDaily: c.limit_daily,
+            status: c.status,
+            progress: c.progress,
+            currentStep: c.current_step
+          })));
+        }
+      })
+      .catch(() => console.log('Using local fallback campaigns'));
+
+    // Load Leads
+    fetch(`${API_BASE}/leads`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setLeads(data.map(l => ({
+            id: String(l.id),
+            companyName: l.company_name,
+            website: l.website,
+            score: l.score || 0,
+            scoreReason: l.score_reason || '',
+            contactName: l.contact_name || '',
+            contactRole: l.contact_role || '',
+            status: l.status,
+            personalizedMessage: l.personalized_message || ''
+          })));
+        }
+      })
+      .catch(() => console.log('Using local fallback leads'));
+  }, []);
+
+  // Sync profile saving to backend
+  const handleSaveProfile = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_name: companyProfile.name,
+          industry: companyProfile.industry,
+          description: companyProfile.description,
+          value_proposition: companyProfile.valueProposition,
+          target_audience: companyProfile.targetAudience,
+          brand_voice: companyProfile.brandVoice
+        })
+      });
+      if (response.ok) {
+        alert('Configurações salvas no servidor!');
+      } else {
+        alert('Erro ao salvar no servidor, salvo localmente!');
+      }
+    } catch {
+      alert('Salvo localmente (modo sandbox offline)!');
+    }
+    setActiveTab('dashboard');
+  };
+
   // --- SIMULATION OF RUNNING CAMPAIGN ---
   const [runningCampaignId, setRunningCampaignId] = useState<string | null>(null);
 
-  const startCampaign = (campaignId: string) => {
+  const startCampaign = async (campaignId: string) => {
+    // Optimistic UI update
     setCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, status: 'running', progress: 5 } : c));
     setRunningCampaignId(campaignId);
+
+    // Call Laravel Backend campaign worker dispatch trigger
+    try {
+      await fetch(`${API_BASE}/campaigns/${campaignId}/start`, { method: 'POST' });
+    } catch {
+      console.log('Running campaign in frontend demo fallback mode');
+    }
   };
 
   useEffect(() => {
     if (!runningCampaignId) return;
 
+    // Fast simulation check if API backend is not active
     const steps = [
       'Buscando empresas no segmento...',
       'Visitando sites e enriquecendo dados de contato...',
@@ -197,49 +390,71 @@ export default function App() {
 
     let stepIndex = 0;
     const interval = setInterval(() => {
-      setCampaigns(prev => {
-        return prev.map(c => {
-          if (c.id === runningCampaignId) {
-            const nextProgress = Math.min(c.progress + 15, 100);
-            if (nextProgress >= 100) {
-              clearInterval(interval);
-              setRunningCampaignId(null);
-              // Add a mockup qualified lead when campaign finishes
-              addMockLead(c);
-              return {
+      // Keep polling backend status or fallback mock
+      fetch(`${API_BASE}/campaigns`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const serverCamp = data.find(c => String(c.id) === runningCampaignId);
+            if (serverCamp) {
+              setCampaigns(prev => prev.map(c => String(c.id) === runningCampaignId ? {
                 ...c,
-                status: 'completed',
-                progress: 100,
-                currentStep: 'Campanha finalizada!'
-              };
+                status: serverCamp.status,
+                progress: serverCamp.progress,
+                currentStep: serverCamp.current_step
+              } : c));
+              if (serverCamp.status === 'completed') {
+                clearInterval(interval);
+                setRunningCampaignId(null);
+              }
             }
-            const currentStepMsg = steps[stepIndex] || 'Enviando contatos...';
-            stepIndex++;
-            return {
-              ...c,
-              progress: nextProgress,
-              currentStep: currentStepMsg
-            };
           }
-          return c;
+        })
+        .catch(() => {
+          // Frontend fallback simulation if no API connection
+          setCampaigns(prev => {
+            return prev.map(c => {
+              if (c.id === runningCampaignId) {
+                const nextProgress = Math.min(c.progress + 15, 100);
+                if (nextProgress >= 100) {
+                  clearInterval(interval);
+                  setRunningCampaignId(null);
+                  addMockLead(c);
+                  return {
+                    ...c,
+                    status: 'completed',
+                    progress: 100,
+                    currentStep: 'Campanha finalizada!'
+                  };
+                }
+                const currentStepMsg = steps[stepIndex] || 'Enviando contatos...';
+                stepIndex++;
+                return {
+                  ...c,
+                  progress: nextProgress,
+                  currentStep: currentStepMsg
+                };
+              }
+              return c;
+            });
+          });
         });
-      });
     }, 3000);
 
     return () => clearInterval(interval);
   }, [runningCampaignId]);
 
   const addMockLead = (camp: Campaign) => {
-    // Generate AI dynamic message based on user profile and product
     const selectedProd = products.find(p => p.name === camp.targetProduct) || products[0];
-    const generatedMsg = `Olá, notei que sua empresa atua no segmento de ${camp.segment} na região de ${camp.region}. Com base no ${companyProfile.name}, nós oferecemos o ${selectedProd?.name || 'nosso produto'}, que ${selectedProd?.description || 'ajuda sua operação'}. Podemos agendar um papo rápido?`;
+    const regionLabel = buildRegionLabel(camp.prospectingArea);
+    const generatedMsg = `Olá, notei que sua empresa atua no segmento de ${camp.segment} na região de ${regionLabel}. Com base no ${companyProfile.name}, nós oferecemos o ${selectedProd?.name || 'nosso produto'}, que ${selectedProd?.description || 'ajuda sua operação'}. Podemos agendar um papo rápido?`;
 
     const newLead: Lead = {
       id: `l_${Date.now()}`,
       companyName: `${camp.segment.split(' ')[0]} Enterprise`,
       website: `https://test-${camp.segment.toLowerCase().replace(/\s/g, '')}.com`,
-      score: Math.floor(Math.random() * 20) + 80, // High score
-      scoreReason: `Excelente adequação para o produto ${selectedProd?.name}. Apresenta fit de segmento (${camp.segment}) e região (${camp.region}).`,
+      score: Math.floor(Math.random() * 20) + 80,
+      scoreReason: `Excelente adequação para o produto ${selectedProd?.name}. Apresenta fit de segmento (${camp.segment}) e região (${regionLabel}).`,
       contactName: 'Amanda Oliveira',
       contactRole: 'Diretora Comercial',
       status: 'opened',
@@ -249,27 +464,74 @@ export default function App() {
     setLeads(prev => [newLead, ...prev]);
   };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProduct.name || !newProduct.description) return;
-    setProducts(prev => [...prev, { id: `p_${Date.now()}`, ...newProduct }]);
+    
+    // Save locally
+    const tempId = `p_${Date.now()}`;
+    setProducts(prev => [...prev, { id: tempId, ...newProduct }]);
+
+    // Save to Backend API
+    try {
+      await fetch(`${API_BASE}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newProduct.name,
+          description: newProduct.description,
+          features: newProduct.features.split(','),
+          target_buyer: newProduct.targetBuyer
+        })
+      });
+    } catch {
+      console.log('Saved product in frontend sandbox');
+    }
+
     setNewProduct({ name: '', description: '', features: '', targetBuyer: '' });
   };
 
-  const handleCreateCampaign = (e: React.FormEvent) => {
+  const handleCreateCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCampaign.name || !newCampaign.segment) return;
+    if (!newCampaign.name || !newCampaign.segment || newCampaign.prospectingArea.countries.length === 0) return;
+
+    const tempId = `c_${Date.now()}`;
+    // Find target product id matching selected name
+    const matchProd = products.find(p => p.name === newCampaign.targetProduct) || products[0];
+
+    // Create locally
     setCampaigns(prev => [...prev, {
-      id: `c_${Date.now()}`,
+      id: tempId,
       ...newCampaign,
       status: 'idle',
       progress: 0,
       currentStep: 'Pronto para iniciar'
     }]);
+
+    // Save to Backend API
+    try {
+      await fetch(`${API_BASE}/campaigns`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCampaign.name,
+          segment: newCampaign.segment,
+          countries: newCampaign.prospectingArea.countries,
+          states: newCampaign.prospectingArea.states,
+          cities: newCampaign.prospectingArea.cities,
+          language: newCampaign.language,
+          target_product_id: matchProd ? Number(matchProd.id) : 1,
+          limit_daily: newCampaign.limitDaily
+        })
+      });
+    } catch {
+      console.log('Campaign saved in frontend sandbox mode');
+    }
+
     setNewCampaign({
       name: '',
       segment: '',
-      region: '',
+      prospectingArea: { countries: [], states: [], cities: '' },
       language: 'Português',
       targetProduct: products[0]?.name || 'Scoutly Agent Core',
       limitDaily: 50
@@ -284,8 +546,8 @@ export default function App() {
         <div>
           {/* Logo */}
           <div className="p-6 border-b border-[#1C1C28] flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-indigo-600/10 border border-indigo-500/30 flex items-center justify-center shadow-lg overflow-hidden">
+              <img src="/logo.png" alt="Scoutly Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <span className="font-bold text-lg tracking-wider bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
@@ -563,7 +825,7 @@ export default function App() {
                     <span>Nova Campanha Autônoma</span>
                   </h3>
 
-                  <form onSubmit={handleCreateCampaign} className="space-y-4">
+                  <form onSubmit={handleCreateCampaign} className="space-y-5">
                     <div>
                       <label className="block text-xs font-semibold text-gray-400 mb-1">Nome da Campanha</label>
                       <input 
@@ -588,29 +850,109 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* ── GEO-TARGETING ── */}
+                    <div className="border border-[#1F1F30] rounded-xl p-4 space-y-4 bg-[#0B0B12]">
+                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block">📍 Área de Prospecção</span>
+
+                      {/* Countries */}
                       <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">País/Região</label>
-                        <input 
-                          type="text" 
-                          value={newCampaign.region}
-                          onChange={e => setNewCampaign({...newCampaign, region: e.target.value})}
-                          placeholder="Ex: Brasil, EUA"
-                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                        />
+                        <label className="block text-xs font-semibold text-gray-400 mb-2">Países <span className="text-gray-600">(selecione um ou mais)</span></label>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(COUNTRY_DATA).map(([code, { label, flag }]) => (
+                            <button
+                              key={code}
+                              type="button"
+                              onClick={() => toggleCountry(code)}
+                              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                                newCampaign.prospectingArea.countries.includes(code)
+                                  ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
+                                  : 'bg-[#12121E] border-[#1F1F30] text-gray-400 hover:border-indigo-500/40 hover:text-gray-200'
+                              }`}
+                            >
+                              <span>{flag}</span>
+                              <span>{label}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">Idioma</label>
-                        <select 
-                          value={newCampaign.language}
-                          onChange={e => setNewCampaign({...newCampaign, language: e.target.value})}
-                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                        >
-                          <option value="Português">Português</option>
-                          <option value="Inglês">Inglês</option>
-                          <option value="Espanhol">Espanhol</option>
-                        </select>
-                      </div>
+
+                      {/* States - only shown when countries with states are selected */}
+                      {availableStates.length > 0 && (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-400 mb-2">
+                            Estado / Província <span className="text-gray-600">(opcional — sem seleção = âmbito nacional)</span>
+                          </label>
+                          <div className="max-h-36 overflow-y-auto pr-1 space-y-1 custom-scroll">
+                            {newCampaign.prospectingArea.countries.map(code => (
+                              COUNTRY_DATA[code]?.states.length ? (
+                                <div key={code}>
+                                  <span className="text-[10px] font-bold text-gray-600 uppercase block mb-1">{COUNTRY_DATA[code].flag} {COUNTRY_DATA[code].label}</span>
+                                  <div className="flex flex-wrap gap-1.5 mb-2">
+                                    {COUNTRY_DATA[code].states.map(state => (
+                                      <button
+                                        key={state}
+                                        type="button"
+                                        onClick={() => toggleState(state)}
+                                        className={`px-2 py-1 rounded text-[10px] font-semibold border transition-all duration-150 ${
+                                          newCampaign.prospectingArea.states.includes(state)
+                                            ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
+                                            : 'bg-[#0E0E18] border-[#1C1C28] text-gray-500 hover:text-gray-300 hover:border-indigo-500/30'
+                                        }`}
+                                      >
+                                        {state}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Cities */}
+                      {newCampaign.prospectingArea.countries.length > 0 && (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-400 mb-1">
+                            Cidades <span className="text-gray-600">(opcional, separadas por vírgula)</span>
+                          </label>
+                          <input 
+                            type="text" 
+                            value={newCampaign.prospectingArea.cities}
+                            onChange={e => setNewCampaign({...newCampaign, prospectingArea: {...newCampaign.prospectingArea, cities: e.target.value}})}
+                            placeholder="Ex: São Paulo, Campinas, Rio de Janeiro"
+                            className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      )}
+
+                      {/* Area Summary */}
+                      {newCampaign.prospectingArea.countries.length > 0 && (
+                        <div className="p-3 rounded-lg bg-indigo-950/20 border border-indigo-500/20">
+                          <span className="text-[10px] font-bold text-indigo-400 uppercase block mb-1">Escopo configurado</span>
+                          <p className="text-xs text-gray-300 leading-relaxed">
+                            {buildRegionLabel(newCampaign.prospectingArea)}
+                          </p>
+                          {newCampaign.prospectingArea.states.length === 0 && (
+                            <span className="text-[10px] text-amber-400 mt-1 block">⚠ Sem estado selecionado: agentes atuarão no país inteiro</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Idioma</label>
+                      <select 
+                        value={newCampaign.language}
+                        onChange={e => setNewCampaign({...newCampaign, language: e.target.value})}
+                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="Português">Português</option>
+                        <option value="Inglês">Inglês</option>
+                        <option value="Espanhol">Espanhol</option>
+                        <option value="Alemão">Alemão</option>
+                        <option value="Francês">Francês</option>
+                      </select>
                     </div>
 
                     <div>
@@ -637,8 +979,9 @@ export default function App() {
                     </div>
 
                     <button 
-                      type="submit" 
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition duration-200 mt-2 shadow-lg shadow-indigo-500/20"
+                      type="submit"
+                      disabled={newCampaign.prospectingArea.countries.length === 0}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition duration-200 mt-2 shadow-lg shadow-indigo-500/20"
                     >
                       Criar Campanha
                     </button>
@@ -666,7 +1009,7 @@ export default function App() {
                           
                           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-400">
                             <span><strong>Segmento:</strong> {camp.segment}</span>
-                            <span><strong>Região:</strong> {camp.region}</span>
+                            <span><strong>Região:</strong> {buildRegionLabel(camp.prospectingArea)}</span>
                             <span><strong>Produto:</strong> {camp.targetProduct}</span>
                           </div>
                         </div>
@@ -1023,10 +1366,7 @@ export default function App() {
 
                   <div className="mt-8 pt-6 border-t border-[#1C1C28] flex justify-end">
                     <button 
-                      onClick={() => {
-                        alert('Contexto de treinamento atualizado!');
-                        setActiveTab('dashboard');
-                      }}
+                      onClick={handleSaveProfile}
                       className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition duration-200 shadow-lg shadow-indigo-500/20"
                     >
                       Salvar Configurações & Atualizar Agentes
@@ -1071,6 +1411,43 @@ export default function App() {
                         value={apiKeys.anthropic}
                         onChange={e => setApiKeys({...apiKeys, anthropic: e.target.value})}
                         placeholder="sk-ant-..."
+                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t border-[#1C1C28]/50">
+                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-4">🔗 Integrações e Leads Reais</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Apollo.io API Key (Busca de Leads)</label>
+                      <input 
+                        type="password" 
+                        value={apiKeys.apollo}
+                        onChange={e => setApiKeys({...apiKeys, apollo: e.target.value})}
+                        placeholder="apikeys_..."
+                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Hunter.io API Key (Validação de E-mails)</label>
+                      <input 
+                        type="password" 
+                        value={apiKeys.hunter}
+                        onChange={e => setApiKeys({...apiKeys, hunter: e.target.value})}
+                        placeholder="Hunter API Key..."
+                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Resend API Key (Infraestrutura de Disparo SMTP)</label>
+                      <input 
+                        type="password" 
+                        value={apiKeys.resend}
+                        onChange={e => setApiKeys({...apiKeys, resend: e.target.value})}
+                        placeholder="re_..."
                         className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
                       />
                     </div>
