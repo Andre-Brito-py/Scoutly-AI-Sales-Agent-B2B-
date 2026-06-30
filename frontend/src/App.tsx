@@ -88,21 +88,21 @@ export default function App() {
 
   // --- PERSISTED STATE / INITIAL SEEDS ---
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>({
-    name: 'Scoutly',
-    industry: 'Sales Tech & Artificial Intelligence',
-    description: 'Um SDR autônomo baseado em agentes de IA que automatiza toda a prospecção B2B, desde encontrar leads até agendar a demonstração.',
-    valueProposition: 'Gerar reuniões de vendas qualificadas de forma 100% autônoma, reduzindo o custo de aquisição e acelerando o pipeline de vendas.',
-    targetAudience: 'Startups SaaS, agências de marketing, e empresas de tecnologia B2B.',
-    brandVoice: 'Profissional, inovadora, assertiva e focada em resultados objetivos.'
+    name: 'Vysify',
+    industry: 'Enterprise Software & Sales CRM',
+    description: 'Um CRM moderno focado em otimização de pipeline e automações comerciais que ajuda times de venda a fechar mais negócios.',
+    valueProposition: 'Acelerar o ciclo de vendas e estruturar a jornada comercial através de automações inteligentes e pipeline intuitivo.',
+    targetAudience: 'Startups, agências de marketing, e PMEs em crescimento.',
+    brandVoice: 'Profissional, focado em resultados, consultivo e tecnológico.'
   });
 
   const [products, setProducts] = useState<Product[]>([
     {
       id: '1',
-      name: 'Scoutly Agent Core',
-      description: 'Agente virtual autônomo que trabalha 24/7 pesquisando, qualificando e abordando tomadores de decisão.',
-      features: 'Enriquecimento profundo de sites, scoring de leads com IA baseada em fit, copywriting dinâmico baseado em inteligência competitiva.',
-      targetBuyer: 'Diretores de Vendas, Head de Growth, founders de Startups.'
+      name: 'Vysify CRM Suite',
+      description: 'Plataforma CRM completa com funis de venda, relatórios de performance de SDR e integrações comerciais.',
+      features: 'Funil Kanban, relatórios em tempo real, automações de follow-up, API aberta',
+      targetBuyer: 'Gestores de Vendas, Diretores Comerciais, CEOs e Fundadores de PMEs.'
     }
   ]);
 
@@ -368,7 +368,15 @@ export default function App() {
 
     // Call Laravel Backend campaign worker dispatch trigger
     try {
-      await fetch(`${API_BASE}/campaigns/${campaignId}/start`, { method: 'POST' });
+      await fetch(`${API_BASE}/campaigns/${campaignId}/start`, { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-OpenAI-Key': apiKeys.openai,
+          'X-Apollo-Key': apiKeys.apollo,
+          'X-Resend-Key': apiKeys.resend
+        }
+      });
     } catch {
       console.log('Running campaign in frontend demo fallback mode');
     }

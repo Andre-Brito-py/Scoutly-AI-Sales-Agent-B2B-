@@ -41,10 +41,16 @@ class CampaignController
         return response()->json($campaign, 201);
     }
 
-    public function start(Campaign $campaign): JsonResponse
+    public function start(Request $request, Campaign $campaign): JsonResponse
     {
-        // Dispatches the background worker chain
-        DiscoverLeadsJob::dispatch($campaign);
+        $apiKeys = [
+            'openai' => $request->header('X-OpenAI-Key'),
+            'apollo' => $request->header('X-Apollo-Key'),
+            'resend' => $request->header('X-Resend-Key')
+        ];
+
+        // Dispatches the background worker chain passing API keys context
+        DiscoverLeadsJob::dispatch($campaign, $apiKeys);
 
         $campaign->update([
             'status' => 'running',

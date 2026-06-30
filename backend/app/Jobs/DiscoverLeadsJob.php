@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Domains\Tenant\Models\Campaign;
 use App\Domains\Company\Actions\SearchCompaniesAction;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -15,10 +16,12 @@ class DiscoverLeadsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected Campaign $campaign;
+    protected array $apiKeys;
 
-    public function __construct(Campaign $campaign)
+    public function __construct(Campaign $campaign, array $apiKeys = [])
     {
         $this->campaign = $campaign;
+        $this->apiKeys = $apiKeys;
     }
 
     public function handle(SearchCompaniesAction $searchAction): void
@@ -29,29 +32,74 @@ class DiscoverLeadsJob implements ShouldQueue
             'current_step' => 'Buscando empresas no segmento...',
         ]);
 
-        // Define geographical and segment target filters
-        $filters = [
-            'segment' => $this->campaign->segment,
-            'countries' => $this->campaign->countries,
-            'states' => $this->campaign->states,
-            'cities' => $this->campaign->cities,
-        ];
+        $apolloKey = $this->apiKeys['apollo'] ?? null;
+        $leadsFound = [];
 
-        // Search companies using existing action
-        $companies = $searchAction->execute($this->campaign->tenant_id, $filters);
+        if ($apolloKey) {
+            // Live query to Apollo.io mixed people search endpoint
+            $response = Http::withHeaders([
+                'Cache-Control' => 'no-cache',
+                'Content-Type' => 'application/json',
+                'X-Api-Key' => $apolloKey
+            ])->post('https://api.apollo.io/v1/mixed_people/search', [
+                'q_organization_keyword_tags' => [$this->campaign->segment],
+                'person_locations' => $this->campaign->countries,
+                'person_titles' => ['CEO', 'Founder', 'VP of Sales', 'Diretor Comercial', 'Sales Director'],
+                'page' => 1,
+                'per_page' => 5
+            ]);
 
-        // Convert found companies into Leads targeting this campaign
-        foreach ($companies as $company) {
+            if ($response->successful()) {
+                $data = $response->json();
+                $people = $data['people'] ?? [];
+                foreach ($people as $person) {
+                    $org = $person['organization'] ?? [];
+                    $leadsFound[] = [
+                        'name' => $org['name'] ?? 'Empresa Desconhecida',
+                        'website' => $org['primary_domain'] ? 'https://' . $org['primary_domain'] : 'https://example.com',
+                        'contact_name' => $person['name'] ?? 'Tomador de Decisão',
+                        'contact_email' => $person['email'] ?? ($person['primary_email']['email'] ?? null),
+                        'contact_role' => $person['title'] ?? 'Executivo'
+                    ];
+                }
+            }
+        }
+
+        // Fallback to SearchCompaniesAction mock if Apollo returned nothing or key is absent
+        if (empty($leadsFound)) {
+            $filters = [
+                'segment' => $this->campaign->segment,
+                'countries' => $this->campaign->countries,
+                'states' => $this->campaign->states,
+                'cities' => $this->campaign->cities,
+            ];
+            $companies = $searchAction->execute($this->campaign->tenant_id, $filters);
+            foreach ($companies as $company) {
+                $leadsFound[] = [
+                    'name' => $company->name,
+                    'website' => $company->website,
+                    'contact_name' => null,
+                    'contact_email' => null,
+                    'contact_role' => null
+                ];
+            }
+        }
+
+        // Convert parsed raw data into leads records
+        foreach ($leadsFound as $item) {
             $lead = $this->campaign->leads()->firstOrCreate(
-                ['website' => $company->website],
+                ['website' => $item['website']],
                 [
-                    'company_name' => $company->name,
+                    'company_name' => $item['name'],
+                    'contact_name' => $item['contact_name'],
+                    'contact_email' => $item['contact_email'],
+                    'contact_role' => $item['contact_role'],
                     'status' => 'found',
                 ]
             );
 
-            // Dispatch next step in pipeline for each lead
-            EnrichWebsiteJob::dispatch($lead);
+            // Dispatch next step in pipeline passing along the API Keys
+            EnrichWebsiteJob::dispatch($lead, $this->apiKeys);
         }
 
         $this->campaign->update([
