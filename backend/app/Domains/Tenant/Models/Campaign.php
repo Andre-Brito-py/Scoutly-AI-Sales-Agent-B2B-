@@ -44,4 +44,9 @@ class Campaign extends Model
     {
         return $this->hasMany(Lead::class);
     }
+
+    public function abTests(): HasMany
+    {
+        return $this->hasMany(AbTest::class);
+    }
 }

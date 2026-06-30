@@ -846,37 +846,56 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Company Context Summary Card */}
+                {/* A/B Copywriting Variant Comparison Card */}
                 <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6 space-y-6">
-                  <h3 className="text-sm font-semibold text-white tracking-wide uppercase">Diretrizes de Negócio Ativas</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-semibold text-white tracking-wide uppercase">Performance de Teste A/B</h3>
+                    <span className="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">Ativo</span>
+                  </div>
                   
                   <div className="space-y-4">
-                    <div>
-                      <span className="text-[10px] font-semibold text-indigo-400 uppercase block tracking-wider">Startup / Empresa</span>
-                      <span className="text-sm font-medium text-white block mt-0.5">{companyProfile.name}</span>
+                    <div className="p-4 rounded-lg bg-[#12121E] border border-[#1F1F30]">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-bold text-white">Variante A (Pitch de Valor)</span>
+                        <span className="text-[10px] text-indigo-400 font-bold">Conv. 14.5%</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500">CTA de valor de negócio direto sugerindo ganhos de ROI no Vysify CRM.</span>
+                      <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[#1C1C28]/50 text-left">
+                        <div>
+                          <span className="block text-[9px] text-gray-500 uppercase">Disparos</span>
+                          <span className="text-xs font-semibold text-white">62 leads</span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] text-gray-500 uppercase">Respostas</span>
+                          <span className="text-xs font-semibold text-emerald-400">9 reuniões</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <span className="text-[10px] font-semibold text-indigo-400 uppercase block tracking-wider">Proposta de Valor</span>
-                      <p className="text-xs text-gray-400 mt-1 leading-relaxed line-clamp-3">
-                        {companyProfile.valueProposition}
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] font-semibold text-indigo-400 uppercase block tracking-wider">Produto Oferecido</span>
-                      <div className="p-3 rounded-lg bg-[#12121E] border border-[#1F1F30] mt-1">
-                        <span className="text-xs font-semibold text-white block">{products[0]?.name || 'Nenhum'}</span>
-                        <span className="text-[10px] text-gray-400 block mt-0.5 truncate">{products[0]?.description}</span>
+                    <div className="p-4 rounded-lg bg-[#12121E] border border-[#1F1F30]">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-bold text-white">Variante B (Foco em Dor)</span>
+                        <span className="text-[10px] text-indigo-400 font-bold">Conv. 22.8%</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500">Abordagem consultiva focando no maior gargalo de funil que a empresa tem.</span>
+                      <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[#1C1C28]/50 text-left">
+                        <div>
+                          <span className="block text-[9px] text-gray-500 uppercase">Disparos</span>
+                          <span className="text-xs font-semibold text-white">57 leads</span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] text-gray-500 uppercase">Respostas</span>
+                          <span className="text-xs font-semibold text-emerald-400">13 reuniões</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <button 
-                    onClick={() => setActiveTab('profile')} 
+                    onClick={() => setActiveTab('logs')} 
                     className="w-full py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 rounded-lg text-xs font-semibold transition duration-200"
                   >
-                    Editar Contexto & Produto
+                    Análise e Logs de Disparos
                   </button>
                 </div>
 

@@ -38,13 +38,25 @@ class GeneratePersonalizedMessageJob implements ShouldQueue
         $openAiKey = $this->apiKeys['openai'] ?? null;
         $message = "";
 
+        // Assign variant A or B dynamically
+        $variant = (rand(0, 1) === 0) ? 'A' : 'B';
+        $this->lead->update(['ab_variant' => $variant]);
+
+        // Increment A/B test variant send count metrics
+        $abTest = $campaign->abTests()->firstOrCreate(['variant_name' => $variant]);
+        $abTest->increment('send_count');
+
         // Meeting schedule link (change to your Cal.com / Calendly / Google Calendar appointment link)
         $calendarLink = "https://calendly.com/vysify-crm/demo";
 
         if ($openAiKey) {
+            $variantInstructions = ($variant === 'A')
+                ? "Foque em uma abordagem direta apresentando o valor único e rápido retorno de ROI do produto."
+                : "Foque em iniciar uma conversa fazendo uma pergunta provocativa sobre o maior gargalo operacional/dor que eles possuem hoje.";
+
             $prompt = "Escreva uma mensagem de email de abordagem fria (cold outreach) curta e objetiva, no idioma '{$lang}', com tom de voz '{$tenantProfile->brand_voice}'.\n"
                     . "O remetente é da empresa '{$tenantProfile->company_name}' ({$tenantProfile->description}), oferecendo o produto '{$targetProduct->name}' ({$targetProduct->description}) para a persona '{$this->lead->contact_role}' da empresa '{$this->lead->company_name}'.\n"
-                    . "Explique brevemente um benefício ou dor que resolvemos para a persona.\n"
+                    . "Instrução específica de variação: {$variantInstructions}\n"
                     . "CTA final: Chamar para uma conversa rápida de 10 minutos sugerindo marcar no link: {$calendarLink}.\n"
                     . "Não envie cabeçalho, assunto ou rodapé. Envie apenas o corpo do texto de forma direta, sem aspas.";
 

@@ -9,6 +9,7 @@ class Lead extends Model
 {
     protected $fillable = [
         'campaign_id',
+        'ab_variant',
         'company_name',
         'website',
         'score',
@@ -18,6 +19,7 @@ class Lead extends Model
         'contact_phone',
         'contact_role',
         'status',
+        'reply_sentiment',
         'personalized_message',
     ];
 
