@@ -29,27 +29,43 @@ class ReplyWebhookController
         // Find stored OpenAI key inside headers or config (fallback to mock)
         $openAiKey = $request->header('X-OpenAI-Key') ?? env('OPENAI_API_KEY');
 
+        $targetProduct = $campaign->targetProduct;
+        $tenantProfile = $campaign->tenant->profile;
+
+        $pricingContext = $targetProduct ? ($targetProduct->pricing_plans ?? 'Planos sob consulta.') : 'Planos sob consulta.';
+        $domainContext = $tenantProfile ? ($tenantProfile->company_domain ?? 'Acesse nosso site comercial.') : 'Acesse nosso site comercial.';
+
         if ($openAiKey) {
-            $prompt = "Classifique a seguinte resposta de email/mensagem recebida de um lead no contexto B2B:\n\n"
-                    . "\"{$replyText}\"\n\n"
-                    . "Escolha exatamente uma das seguintes tags de classificação:\n"
-                    . "- interested (se o lead demonstrou interesse, quer saber mais, pediu apresentação ou agendamento)\n"
-                    . "- not_interested (se o lead recusou, disse que não precisa, ou pediu para remover da lista)\n"
-                    . "- out_of_office (se for mensagem automática de ausência)\n"
-                    . "Retorne apenas a tag escolhida, sem pontuação.";
+            $prompt = "Você é um SDR B2B que recebeu uma resposta de um prospect.\n"
+                    . "Mensagem do prospect: \"{$replyText}\"\n\n"
+                    . "Informações da sua empresa:\n"
+                    . "- Nome da empresa: {$tenantProfile->company_name}\n"
+                    . "- Domínio/Site: {$domainContext}\n"
+                    . "- Tabela de preços e planos: {$pricingContext}\n\n"
+                    . "Analise se o prospect está solicitando informações de planos/valores OU perguntando qual é a empresa/site.\n"
+                    . "Retorne um objeto JSON contendo exatamente os seguintes campos:\n"
+                    . "1. \"sentiment\": Classifique a resposta em \"interested\" (se quer marcar reunião, demonstrou interesse, ou quer saber mais), \"not_interested\" (se recusou ou pediu opt-out), ou \"out_of_office\".\n"
+                    . "2. \"ai_reply\": Se o prospect perguntou sobre preços/planos ou sobre qual é a empresa/site, redija uma resposta curta de 1 frase respondendo à pergunta dele de forma direta usando as informações fornecidas e sugerindo marcar uma demo. Caso contrário, deixe este campo vazio.\n\n"
+                    . "Retorne apenas o JSON. Não envie introdução ou Markdown.";
 
             try {
                 $response = Http::withToken($openAiKey)->post('https://api.openai.com/v1/chat/completions', [
                     'model' => 'gpt-4o-mini',
                     'messages' => [['role' => 'user', 'content' => $prompt]],
-                    'temperature' => 0.0
+                    'response_format' => ['type' => 'json_object'],
+                    'temperature' => 0.2
                 ]);
 
                 if ($response->successful()) {
                     $json = $response->json();
-                    $tag = trim(strtolower($json['choices'][0]['message']['content'] ?? ''));
+                    $content = json_decode($json['choices'][0]['message']['content'] ?? '{}', true);
+                    $tag = trim(strtolower($content['sentiment'] ?? ''));
                     if (in_array($tag, ['interested', 'not_interested', 'out_of_office'])) {
                         $sentiment = $tag;
+                    }
+                    $aiReplyText = $content['ai_reply'] ?? '';
+                    if (!empty($aiReplyText)) {
+                        Log::info("Prepared AI reply response: " . $aiReplyText);
                     }
                 }
             } catch (\Exception $e) {

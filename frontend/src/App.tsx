@@ -22,10 +22,12 @@ interface Product {
   description: string;
   features: string;
   targetBuyer: string;
+  pricingPlans: string;
 }
 
 interface CompanyProfile {
   name: string;
+  domain?: string;
   industry: string;
   description: string;
   valueProposition: string;
@@ -115,6 +117,7 @@ export default function App() {
   // --- PERSISTED STATE / INITIAL SEEDS ---
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>({
     name: 'Vysify',
+    domain: 'https://vysify.com',
     industry: 'Enterprise Software & Sales CRM',
     description: 'Um CRM moderno focado em otimização de pipeline e automações comerciais que ajuda times de venda a fechar mais negócios.',
     valueProposition: 'Acelerar o ciclo de vendas e estruturar a jornada comercial através de automações inteligentes e pipeline intuitivo.',
@@ -128,7 +131,8 @@ export default function App() {
       name: 'Vysify CRM Suite',
       description: 'Plataforma CRM completa com funis de venda, relatórios de performance de SDR e integrações comerciais.',
       features: 'Funil Kanban, relatórios em tempo real, automações de follow-up, API aberta',
-      targetBuyer: 'Gestores de Vendas, Diretores Comerciais, CEOs e Fundadores de PMEs.'
+      targetBuyer: 'Gestores de Vendas, Diretores Comerciais, CEOs e Fundadores de PMEs.',
+      pricingPlans: 'Plano Starter: R$ 99/mês. Plano Pro: R$ 249/mês. Plano Enterprise: Sob consulta.'
     }
   ]);
 
@@ -136,7 +140,8 @@ export default function App() {
     name: '',
     description: '',
     features: '',
-    targetBuyer: ''
+    targetBuyer: '',
+    pricingPlans: ''
   });
 
   // --- GEO-TARGETING DATA ---
@@ -286,6 +291,7 @@ export default function App() {
         if (data && data.company_name) {
           setCompanyProfile({
             name: data.company_name,
+            domain: data.company_domain || '',
             industry: data.industry,
             description: data.description,
             valueProposition: data.value_proposition,
@@ -306,7 +312,8 @@ export default function App() {
             name: p.name,
             description: p.description,
             features: Array.isArray(p.features) ? p.features.join(', ') : (p.features || ''),
-            targetBuyer: p.target_buyer || ''
+            targetBuyer: p.target_buyer || '',
+            pricingPlans: p.pricing_plans || ''
           })));
         }
       })
@@ -392,6 +399,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company_name: companyProfile.name,
+          company_domain: companyProfile.domain,
           industry: companyProfile.industry,
           description: companyProfile.description,
           value_proposition: companyProfile.valueProposition,
@@ -546,14 +554,15 @@ export default function App() {
           name: newProduct.name,
           description: newProduct.description,
           features: newProduct.features.split(','),
-          target_buyer: newProduct.targetBuyer
+          target_buyer: newProduct.targetBuyer,
+          pricing_plans: newProduct.pricingPlans
         })
       });
     } catch {
       console.log('Saved product in frontend sandbox');
     }
 
-    setNewProduct({ name: '', description: '', features: '', targetBuyer: '' });
+    setNewProduct({ name: '', description: '', features: '', targetBuyer: '', pricingPlans: '' });
   };
 
   const handleCreateCampaign = async (e: React.FormEvent) => {
@@ -1333,6 +1342,17 @@ export default function App() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Planos & Preços (Explicativo para IA)</label>
+                      <textarea 
+                        rows={2}
+                        value={newProduct.pricingPlans}
+                        onChange={e => setNewProduct({...newProduct, pricingPlans: e.target.value})}
+                        placeholder="Ex: Starter: R$ 99/mês (5 funis), Pro: R$ 249/mês (ilimitado)"
+                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                      />
+                    </div>
+
                     <button 
                       type="submit" 
                       className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition duration-200 mt-2 shadow-lg shadow-indigo-500/20"
@@ -1359,6 +1379,13 @@ export default function App() {
                       <p className="text-sm text-gray-300 mt-4 leading-relaxed">
                         {prod.description}
                       </p>
+
+                      {prod.pricingPlans && (
+                        <div className="mt-3 p-3 rounded-lg bg-[#12121E] border border-[#1F1F30] text-xs">
+                          <span className="font-semibold text-indigo-400 block mb-1">💰 Planos & Valores Cadastrados:</span>
+                          <span className="text-gray-400 block leading-relaxed">{prod.pricingPlans}</span>
+                        </div>
+                      )}
 
                       <div className="mt-4 pt-4 border-t border-[#1C1C28] flex flex-wrap gap-2">
                         {prod.features.split(',').map((f, i) => (
@@ -1405,6 +1432,17 @@ export default function App() {
                         type="text" 
                         value={companyProfile.name}
                         onChange={e => setCompanyProfile({...companyProfile, name: e.target.value})}
+                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Domínio do Negócio (Opcional)</label>
+                      <input 
+                        type="text" 
+                        value={companyProfile.domain}
+                        onChange={e => setCompanyProfile({...companyProfile, domain: e.target.value})}
+                        placeholder="https://vysify.com"
                         className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
                       />
                     </div>
