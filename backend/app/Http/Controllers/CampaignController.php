@@ -46,7 +46,11 @@ class CampaignController
         $apiKeys = [
             'openai' => $request->header('X-OpenAI-Key'),
             'apollo' => $request->header('X-Apollo-Key'),
-            'resend' => $request->header('X-Resend-Key')
+            'resend' => $request->header('X-Resend-Key'),
+            'whatsapp_token' => $request->header('X-WhatsApp-Token'),
+            'whatsapp_instance' => $request->header('X-WhatsApp-Instance'),
+            'telegram_token' => $request->header('X-Telegram-Bot-Token'),
+            'telegram_chat_id' => $request->header('X-Telegram-Chat-ID')
         ];
 
         // Dispatches the background worker chain passing API keys context

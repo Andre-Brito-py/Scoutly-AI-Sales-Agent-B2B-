@@ -81,9 +81,19 @@ class GeneratePersonalizedMessageJob implements ShouldQueue
             'status' => 'sent',
         ]);
 
-        // Dispatch outbound Resend delivery email if contact email exists
-        if ($this->lead->contact_email) {
+        // Dispatch outbound Resend delivery email if contact email and resend key exist
+        if ($this->lead->contact_email && !empty($this->apiKeys['resend'])) {
             SendOutreachEmailJob::dispatch($this->lead, $this->apiKeys);
+        }
+
+        // Dispatch WhatsApp message if contact phone and whatsapp token exist
+        if ($this->lead->contact_phone && !empty($this->apiKeys['whatsapp_token'])) {
+            SendOutreachWhatsappJob::dispatch($this->lead, $this->apiKeys);
+        }
+
+        // Dispatch Telegram message if telegram token and chat ID exist
+        if (!empty($this->apiKeys['telegram_token']) && !empty($this->apiKeys['telegram_chat_id'])) {
+            SendOutreachTelegramJob::dispatch($this->lead, $this->apiKeys);
         }
 
         $campaign->update([

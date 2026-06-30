@@ -15,6 +15,7 @@ class Lead extends Model
         'score_reason',
         'contact_name',
         'contact_email',
+        'contact_phone',
         'contact_role',
         'status',
         'personalized_message',

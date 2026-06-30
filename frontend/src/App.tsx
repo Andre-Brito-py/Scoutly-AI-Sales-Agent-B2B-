@@ -72,7 +72,11 @@ export default function App() {
     anthropic: localStorage.getItem('scoutly_anthropic_key') || '',
     apollo: localStorage.getItem('scoutly_apollo_key') || '',
     hunter: localStorage.getItem('scoutly_hunter_key') || '',
-    resend: localStorage.getItem('scoutly_resend_key') || ''
+    resend: localStorage.getItem('scoutly_resend_key') || '',
+    whatsappToken: localStorage.getItem('scoutly_whatsapp_token') || '',
+    whatsappInstance: localStorage.getItem('scoutly_whatsapp_instance') || '',
+    telegramToken: localStorage.getItem('scoutly_telegram_token') || '',
+    telegramChatId: localStorage.getItem('scoutly_telegram_chat_id') || ''
   });
 
   const saveApiKeys = (e: React.FormEvent) => {
@@ -83,6 +87,10 @@ export default function App() {
     localStorage.setItem('scoutly_apollo_key', apiKeys.apollo);
     localStorage.setItem('scoutly_hunter_key', apiKeys.hunter);
     localStorage.setItem('scoutly_resend_key', apiKeys.resend);
+    localStorage.setItem('scoutly_whatsapp_token', apiKeys.whatsappToken);
+    localStorage.setItem('scoutly_whatsapp_instance', apiKeys.whatsappInstance);
+    localStorage.setItem('scoutly_telegram_token', apiKeys.telegramToken);
+    localStorage.setItem('scoutly_telegram_chat_id', apiKeys.telegramChatId);
     alert('Chaves de API salvas localmente!');
   };
 
@@ -374,7 +382,11 @@ export default function App() {
           'Content-Type': 'application/json',
           'X-OpenAI-Key': apiKeys.openai,
           'X-Apollo-Key': apiKeys.apollo,
-          'X-Resend-Key': apiKeys.resend
+          'X-Resend-Key': apiKeys.resend,
+          'X-WhatsApp-Token': apiKeys.whatsappToken,
+          'X-WhatsApp-Instance': apiKeys.whatsappInstance,
+          'X-Telegram-Bot-Token': apiKeys.telegramToken,
+          'X-Telegram-Chat-ID': apiKeys.telegramChatId
         }
       });
     } catch {
@@ -1458,6 +1470,58 @@ export default function App() {
                         placeholder="re_..."
                         className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
                       />
+                    </div>
+
+                    <div className="pt-4 border-t border-[#1C1C28]/50">
+                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-4">💬 Mensageria Outbound</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">WhatsApp Token (Z-API / Evolution)</label>
+                        <input 
+                          type="password" 
+                          value={apiKeys.whatsappToken}
+                          onChange={e => setApiKeys({...apiKeys, whatsappToken: e.target.value})}
+                          placeholder="Token da API..."
+                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">WhatsApp URL da Instância</label>
+                        <input 
+                          type="text" 
+                          value={apiKeys.whatsappInstance}
+                          onChange={e => setApiKeys({...apiKeys, whatsappInstance: e.target.value})}
+                          placeholder="https://api.evolution.com/v1"
+                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">Telegram Bot Token</label>
+                        <input 
+                          type="password" 
+                          value={apiKeys.telegramToken}
+                          onChange={e => setApiKeys({...apiKeys, telegramToken: e.target.value})}
+                          placeholder="Bot Token..."
+                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">Telegram Chat ID / Canal</label>
+                        <input 
+                          type="text" 
+                          value={apiKeys.telegramChatId}
+                          onChange={e => setApiKeys({...apiKeys, telegramChatId: e.target.value})}
+                          placeholder="@seu_chat_id"
+                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        />
+                      </div>
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-[#1C1C28] flex justify-end">

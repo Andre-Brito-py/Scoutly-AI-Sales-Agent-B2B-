@@ -59,6 +59,7 @@ class DiscoverLeadsJob implements ShouldQueue
                         'website' => $org['primary_domain'] ? 'https://' . $org['primary_domain'] : 'https://example.com',
                         'contact_name' => $person['name'] ?? 'Tomador de Decisão',
                         'contact_email' => $person['email'] ?? ($person['primary_email']['email'] ?? null),
+                        'contact_phone' => $person['phone_numbers'][0]['raw_number'] ?? ($org['phone'] ?? null),
                         'contact_role' => $person['title'] ?? 'Executivo'
                     ];
                 }
@@ -80,6 +81,7 @@ class DiscoverLeadsJob implements ShouldQueue
                     'website' => $company->website,
                     'contact_name' => null,
                     'contact_email' => null,
+                    'contact_phone' => null,
                     'contact_role' => null
                 ];
             }
@@ -93,6 +95,7 @@ class DiscoverLeadsJob implements ShouldQueue
                     'company_name' => $item['name'],
                     'contact_name' => $item['contact_name'],
                     'contact_email' => $item['contact_email'],
+                    'contact_phone' => $item['contact_phone'] ?? null,
                     'contact_role' => $item['contact_role'],
                     'status' => 'found',
                 ]
