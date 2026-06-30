@@ -29,8 +29,19 @@ class SendOutreachTelegramJob implements ShouldQueue
         $token = $this->apiKeys['telegram_token'] ?? null;
         $chatId = $this->apiKeys['telegram_chat_id'] ?? null;
 
+        $campaign = $this->lead->campaign;
+
         if (!$token || !$chatId) {
             Log::warning("Skipping real Telegram outreach for Lead ID {$this->lead->id}: Bot token or Chat ID is missing.");
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'telegram',
+                'recipient' => $chatId ?? 'Desconhecido',
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'failed',
+                'error_message' => 'Telegram parameters missing',
+            ]);
             return;
         }
 
@@ -45,8 +56,26 @@ class SendOutreachTelegramJob implements ShouldQueue
 
         if ($response->successful()) {
             Log::info("Outreach Telegram message sent to chat {$chatId}.");
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'telegram',
+                'recipient' => $chatId,
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'sent',
+            ]);
         } else {
-            Log::error("Failed to send Telegram message: " . $response->body());
+            $errorMsg = $response->body();
+            Log::error("Failed to send Telegram message: " . $errorMsg);
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'telegram',
+                'recipient' => $chatId,
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'failed',
+                'error_message' => $errorMsg,
+            ]);
         }
     }
 }

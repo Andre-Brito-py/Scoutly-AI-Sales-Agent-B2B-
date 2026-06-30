@@ -29,8 +29,19 @@ class SendOutreachWhatsappJob implements ShouldQueue
         $token = $this->apiKeys['whatsapp_token'] ?? null;
         $instance = $this->apiKeys['whatsapp_instance'] ?? null;
 
+        $campaign = $this->lead->campaign;
+
         if (!$token || !$instance) {
             Log::warning("Skipping real WhatsApp sending for Lead ID {$this->lead->id}: token or instance URL is missing.");
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'whatsapp',
+                'recipient' => $this->lead->contact_phone ?? 'Desconhecido',
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'failed',
+                'error_message' => 'WhatsApp configuration missing',
+            ]);
             return;
         }
 
@@ -57,8 +68,26 @@ class SendOutreachWhatsappJob implements ShouldQueue
 
         if ($response->successful()) {
             Log::info("Outreach WhatsApp message sent successfully to {$cleanPhone}.");
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'whatsapp',
+                'recipient' => $cleanPhone,
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'sent',
+            ]);
         } else {
-            Log::error("Failed to send WhatsApp message to {$cleanPhone}: " . $response->body());
+            $errorMsg = $response->body();
+            Log::error("Failed to send WhatsApp message to {$cleanPhone}: " . $errorMsg);
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'whatsapp',
+                'recipient' => $cleanPhone,
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'failed',
+                'error_message' => $errorMsg,
+            ]);
         }
     }
 }

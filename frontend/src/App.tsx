@@ -11,7 +11,8 @@ import {
   Loader2, 
   ArrowRight,
   ThumbsUp,
-  History
+  History,
+  MessageSquare
 } from 'lucide-react';
 
 // --- TYPES ---
@@ -63,8 +64,23 @@ interface Lead {
   personalizedMessage: string;
 }
 
+interface OutreachLog {
+  id: string;
+  lead_id: string;
+  campaign_id: string;
+  channel: 'email' | 'whatsapp' | 'telegram';
+  recipient: string;
+  message_content: string;
+  status: 'pending' | 'sent' | 'failed';
+  error_message?: string;
+  sent_at: string;
+  lead?: Lead;
+  campaign?: Campaign;
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs'>('dashboard');
+  const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
 
   const [apiKeys, setApiKeys] = useState({
     openai: localStorage.getItem('scoutly_openai_key') || '',
@@ -338,6 +354,32 @@ export default function App() {
         }
       })
       .catch(() => console.log('Using local fallback leads'));
+
+    // Load Outreach Logs
+    fetch(`${API_BASE}/outreach-logs`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setOutreachLogs(data);
+        }
+      })
+      .catch(() => {
+        console.log('Using local fallback outreach logs');
+        // Initial Seed Logs Mock
+        setOutreachLogs([
+          {
+            id: 'log1',
+            lead_id: 'l1',
+            campaign_id: 'c1',
+            channel: 'email',
+            recipient: 'sarah.jenkins@acme.com',
+            message_content: 'Olá Sarah, notei que o time da Acme SaaS está escalando as operações em SP...',
+            status: 'sent',
+            sent_at: '2026-06-30T10:15:00Z',
+            lead: { id: 'l1', companyName: 'Acme SaaS Corp', website: 'https://acmesaas.com', score: 95, scoreReason: '', contactName: 'Sarah Jenkins', contactRole: 'VP of Sales', status: 'booked', personalizedMessage: '' }
+          }
+        ]);
+      });
   }, []);
 
   // Sync profile saving to backend
@@ -654,6 +696,18 @@ export default function App() {
             >
               <BrainCircuit className="w-4 h-4" />
               <span>Memória & Aprendizado</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                activeTab === 'logs'
+                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
+                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Logs de Disparos</span>
             </button>
           </nav>
         </div>
@@ -1585,6 +1639,83 @@ export default function App() {
                       🟢 <strong>Melhor Horário:</strong> Abordagens enviadas entre 10h e 11h30 (horário local do lead) recebem respostas 35% mais rápido.
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* OUTREACH LOGS TAB */}
+          {activeTab === 'logs' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight">Logs de Disparos Outbound</h2>
+                  <p className="text-xs text-gray-400 mt-1">Monitore e acompanhe cada mensagem enviada, status de entrega e erros de API em tempo real.</p>
+                </div>
+              </div>
+
+              <div className="bg-[#0D0D15] border border-[#1C1C28] rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#1C1C28] bg-[#0E0E18] text-gray-400 text-[10px] font-bold uppercase tracking-wider">
+                        <th className="px-6 py-4">Lead</th>
+                        <th className="px-6 py-4">Destinatário</th>
+                        <th className="px-6 py-4">Canal</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4">Mensagem Enviada</th>
+                        <th className="px-6 py-4">Data/Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1C1C28] text-xs text-gray-300">
+                      {outreachLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
+                            Nenhuma atividade de disparo registrada até o momento.
+                          </td>
+                        </tr>
+                      ) : (
+                        outreachLogs.map(log => (
+                          <tr key={log.id} className="hover:bg-[#11111B]/40 transition duration-150">
+                            <td className="px-6 py-4 font-semibold text-white">
+                              {log.lead?.companyName || 'Empresa Desconhecida'}
+                              <span className="block text-[10px] text-gray-500 font-normal">{log.lead?.contactName || 'Sem Contato'}</span>
+                            </td>
+                            <td className="px-6 py-4 font-mono text-gray-400">{log.recipient}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                log.channel === 'email' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                log.channel === 'whatsapp' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                              }`}>
+                                {log.channel}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              {log.status === 'sent' ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  Sucesso
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20" title={log.error_message}>
+                                  Falha
+                                </span>
+                              )}
+                              {log.error_message && (
+                                <span className="block text-[9px] text-red-400/80 mt-1 max-w-[150px] truncate">{log.error_message}</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 max-w-xs truncate italic text-gray-400" title={log.message_content}>
+                              {log.message_content}
+                            </td>
+                            <td className="px-6 py-4 text-gray-500">
+                              {new Date(log.sent_at).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

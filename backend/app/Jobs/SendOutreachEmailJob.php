@@ -32,6 +32,15 @@ class SendOutreachEmailJob implements ShouldQueue
 
         if (!$resendKey) {
             Log::warning("Skipping real email sending for Lead ID {$this->lead->id}: Resend key is missing.");
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'email',
+                'recipient' => $this->lead->contact_email,
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'failed',
+                'error_message' => 'Resend API Key is missing',
+            ]);
             return;
         }
 
@@ -46,8 +55,26 @@ class SendOutreachEmailJob implements ShouldQueue
         if ($response->successful()) {
             $this->lead->update(['status' => 'sent']);
             Log::info("Outreach email successfully sent to {$this->lead->contact_email} via Resend.");
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'email',
+                'recipient' => $this->lead->contact_email,
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'sent',
+            ]);
         } else {
-            Log::error("Failed to send outreach email to {$this->lead->contact_email}: " . $response->body());
+            $errorMsg = $response->body();
+            Log::error("Failed to send outreach email to {$this->lead->contact_email}: " . $errorMsg);
+            \App\Domains\Tenant\Models\OutreachLog::create([
+                'lead_id' => $this->lead->id,
+                'campaign_id' => $campaign->id,
+                'channel' => 'email',
+                'recipient' => $this->lead->contact_email,
+                'message_content' => $this->lead->personalized_message,
+                'status' => 'failed',
+                'error_message' => $errorMsg,
+            ]);
         }
     }
 }
