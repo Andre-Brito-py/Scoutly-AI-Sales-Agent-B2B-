@@ -70,14 +70,36 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     // Filtro de Qualidade: Só dispara se o Score for > 70
     if (score >= 70) {
         console.log(`[Engine] Lead ${formattedLead.companyName} Aprovado (Score ${score}). Preparando disparo...`);
-        // Simulação do disparo automático por enquanto (ou pode acionar sendEmail real)
+        
+        // --- 1. Notificação de Alta Prioridade (Telegram para o Usuário) ---
+        if (score >= 85 && apiKeys?.telegram_token && apiKeys?.telegram_chat_id) {
+            try {
+                const axios = require('axios');
+                const text = `🚨 *Super Lead Encontrado!*\n\n🏢 *Empresa:* ${formattedLead.companyName}\n🔥 *Score:* ${score}\n\n*Resumo:*\n${companySummary}\n\n*Ação:* Mensagem já disparada!`;
+                await axios.post(`https://api.telegram.org/bot${apiKeys.telegram_token}/sendMessage`, {
+                    chat_id: apiKeys.telegram_chat_id,
+                    text: text,
+                    parse_mode: 'Markdown'
+                });
+                console.log(`[Engine] Alerta de Super Lead enviado ao Telegram do Usuário.`);
+            } catch (e) {
+                console.log(`[Engine] Falha ao notificar Telegram: ${e.message}`);
+            }
+        }
+
+        // --- 2. Disparo Externo para o Cliente (Email / WhatsApp / Telegram) ---
+        const channel = searchCriteria.channel || 'email';
+        let recipient = formattedLead.email;
+        if (channel === 'whatsapp') recipient = formattedLead.phone || 'Sem Telefone';
+        if (channel === 'telegram') recipient = formattedLead.social || 'Sem Usuário Telegram';
+
         db.run(
             `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, sent_at)
-             VALUES (?, ?, ?, 'email', ?, ?, 'sent', ?)`,
-            ['log_' + Date.now(), formattedLead.id, campaignId, formattedLead.email, personalizedMessage, new Date().toISOString()]
+             VALUES (?, ?, ?, ?, ?, ?, 'sent', ?)`,
+            ['log_' + Date.now(), formattedLead.id, campaignId, channel, recipient, personalizedMessage, new Date().toISOString()]
         );
         db.run(`UPDATE leads SET status = 'sent' WHERE id = ?`, [formattedLead.id]);
-        console.log(`[Engine] Disparo efetuado com sucesso para ${formattedLead.email}`);
+        console.log(`[Engine] Disparo efetuado com sucesso via ${channel} para ${recipient}`);
     } else {
         console.log(`[Engine] Lead ${formattedLead.companyName} Reprovado (Score ${score}). Descartado.`);
         db.run(`UPDATE leads SET status = 'lost' WHERE id = ?`, [formattedLead.id]);

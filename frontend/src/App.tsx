@@ -462,6 +462,9 @@ export default function App() {
             linkedinCookie: data.linkedin_cookie || ''
           });
         }
+      })
+      .catch(() => console.error('Erro ao carregar chaves de API.'));
+
     fetch(`${API_BASE}/memory`)
       .then(res => res.json())
       .then(data => setAiMemory(Array.isArray(data) ? data : []))
@@ -1103,19 +1106,40 @@ export default function App() {
                       )}
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Idioma</label>
-                      <select 
-                        value={newCampaign.language}
-                        onChange={e => setNewCampaign({...newCampaign, language: e.target.value})}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
-                      >
-                        <option value="Português">Português</option>
-                        <option value="Inglês">Inglês</option>
-                        <option value="Espanhol">Espanhol</option>
-                        <option value="Alemão">Alemão</option>
-                        <option value="Francês">Francês</option>
-                      </select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Idioma</label>
+                        <select 
+                          value={newCampaign.language}
+                          onChange={e => setNewCampaign({...newCampaign, language: e.target.value})}
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
+                        >
+                          <option value="Português">Português</option>
+                          <option value="Inglês">Inglês</option>
+                          <option value="Espanhol">Espanhol</option>
+                          <option value="Alemão">Alemão</option>
+                          <option value="Francês">Francês</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Canal Principal</label>
+                        <select 
+                          value={newCampaign.searchCriteria?.channel || 'email'}
+                          onChange={e => setNewCampaign({
+                            ...newCampaign, 
+                            searchCriteria: {
+                              ...newCampaign.searchCriteria!,
+                              channel: e.target.value as 'email' | 'whatsapp' | 'telegram'
+                            }
+                          })}
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
+                        >
+                          <option value="email">E-mail Corporativo</option>
+                          <option value="whatsapp">WhatsApp (B2B)</option>
+                          <option value="telegram">Telegram Direct</option>
+                        </select>
+                      </div>
                     </div>
 
                     <div>
@@ -2207,6 +2231,29 @@ export default function App() {
                       className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
                     >
                       WhatsApp
+                    </button>
+
+                    <button 
+                      onClick={async () => {
+                        try {
+                          await fetch(API_BASE + '/send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              lead_id: selectedLead.id,
+                              channel: 'telegram',
+                              recipient: selectedLead.social || '@empresa',
+                              message_content: selectedLead.personalizedMessage
+                            })
+                          });
+                          alert('Mensagem enviada via Telegram!');
+                          setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, status: 'sent' } : l));
+                          setSelectedLead(null);
+                        } catch(e) { alert('Erro no disparo'); }
+                      }}
+                      className="px-5 py-3 bg-[#0088cc] hover:bg-[#0077b5] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                    >
+                      Telegram
                     </button>
 
                     <button 
