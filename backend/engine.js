@@ -1,0 +1,125 @@
+const cron = require('node-cron');
+const db = require('./database');
+const GoogleMapsProvider = require('./providers/GoogleMapsProvider');
+const CompanyIntelligenceAgent = require('./agents/CompanyIntelligenceAgent');
+const PainFinderAgent = require('./agents/PainFinderAgent');
+const ScoringAgent = require('./agents/ScoringAgent');
+const CopywriterAgent = require('./agents/CopywriterAgent');
+
+// Estado em memória das campanhas rodando
+const activeCampaigns = {};
+
+// Pausa humanizada (ex: 5 segundos para testes, mas em prod seria 3-5 minutos)
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function processLeadAutomated(rawLead, campaignId) {
+    const provider = new GoogleMapsProvider();
+    const formattedLead = provider.formatLead(rawLead);
+    
+    console.log(`\n[Engine] Iniciando pipeline para: ${formattedLead.companyName}`);
+
+    // Salva no banco inicial
+    db.run(
+        `INSERT INTO leads (id, companyName, contactName, contactRole, email, phone, website, status, importedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'found', ?)`,
+        [formattedLead.id, formattedLead.companyName, formattedLead.contactName, formattedLead.contactRole, formattedLead.email, formattedLead.phone, formattedLead.website, new Date().toISOString()]
+    );
+
+    // Agentes
+    const intelligence = new CompanyIntelligenceAgent();
+    const painFinder = new PainFinderAgent();
+    const scorer = new ScoringAgent();
+    const copywriter = new CopywriterAgent();
+
+    const companySummary = await intelligence.analyzeCompany(formattedLead);
+    const painPoints = await painFinder.findPains(companySummary);
+    const { score, strategy } = await scorer.generateStrategy(formattedLead, companySummary, painPoints);
+    const personalizedMessage = await copywriter.writeMessage(formattedLead, painPoints, strategy);
+    
+    const fullDossier = `ESTRATÉGIA DA IA:\n${strategy}\n\nDORES MAPEADAS:\n${painPoints}\n\nRESUMO DA EMPRESA:\n${companySummary}`;
+
+    // Salva score e mensagem
+    db.run(
+        `UPDATE leads SET score = ?, scoreReason = ?, personalizedMessage = ?, status = 'enriched' WHERE id = ?`,
+        [score, fullDossier, personalizedMessage, formattedLead.id]
+    );
+    
+    // Filtro de Qualidade: Só dispara se o Score for > 70
+    if (score >= 70) {
+        console.log(`[Engine] Lead ${formattedLead.companyName} Aprovado (Score ${score}). Preparando disparo...`);
+        // Simulação do disparo automático por enquanto (ou pode acionar sendEmail real)
+        db.run(
+            `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, sent_at)
+             VALUES (?, ?, ?, 'email', ?, ?, 'sent', ?)`,
+            ['log_' + Date.now(), formattedLead.id, campaignId, formattedLead.email, personalizedMessage, new Date().toISOString()]
+        );
+        db.run(`UPDATE leads SET status = 'sent' WHERE id = ?`, [formattedLead.id]);
+        console.log(`[Engine] Disparo efetuado com sucesso para ${formattedLead.email}`);
+    } else {
+        console.log(`[Engine] Lead ${formattedLead.companyName} Reprovado (Score ${score}). Descartado.`);
+        db.run(`UPDATE leads SET status = 'lost' WHERE id = ?`, [formattedLead.id]);
+    }
+}
+
+async function runCampaign(campaignId, searchCriteria) {
+    if (!activeCampaigns[campaignId]) return;
+    
+    console.log(`[Engine] Campanha ${campaignId} ACORDOU. Buscando leads...`);
+    const provider = new GoogleMapsProvider();
+    
+    // Acha os leads
+    const rawLeads = await provider.searchLeads(searchCriteria);
+    console.log(`[Engine] Encontrados ${rawLeads.length} leads. Iniciando processamento...`);
+
+    for (const lead of rawLeads) {
+        if (!activeCampaigns[campaignId]) {
+            console.log(`[Engine] Campanha ${campaignId} interrompida pelo usuário.`);
+            break;
+        }
+
+        await processLeadAutomated(lead, campaignId);
+        
+        console.log('[Engine] Pausa de 3 segundos para evitar bloqueios de API...');
+        await sleep(3000); 
+    }
+    
+    console.log(`[Engine] Ciclo da campanha ${campaignId} finalizado.`);
+}
+
+/**
+ * Inicia uma campanha. Pode ser Imediata ou Agendada (Cron).
+ */
+function startCampaign(campaignId, frequency, searchCriteria) {
+    if (activeCampaigns[campaignId]) {
+        return { error: 'Campanha já está rodando.' };
+    }
+
+    activeCampaigns[campaignId] = true;
+
+    if (frequency === 'immediate') {
+        // Roda agora mesmo em background
+        runCampaign(campaignId, searchCriteria);
+    } else if (frequency === 'daily') {
+        // Roda todo dia às 09:00
+        const job = cron.schedule('0 9 * * *', () => {
+            runCampaign(campaignId, searchCriteria);
+        });
+        activeCampaigns[campaignId] = job; 
+    }
+
+    return { success: true, message: 'Campanha iniciada com sucesso.' };
+}
+
+function stopCampaign(campaignId) {
+    if (activeCampaigns[campaignId]) {
+        if (activeCampaigns[campaignId].stop) {
+            // É um cron job
+            activeCampaigns[campaignId].stop();
+        }
+        delete activeCampaigns[campaignId];
+        return { success: true };
+    }
+    return { error: 'Campanha não encontrada.' };
+}
+
+module.exports = { startCampaign, stopCampaign, activeCampaigns };

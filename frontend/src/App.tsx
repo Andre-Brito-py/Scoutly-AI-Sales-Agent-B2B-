@@ -12,7 +12,20 @@ import {
   ArrowRight,
   ThumbsUp,
   History,
-  MessageSquare
+  MessageSquare,
+  Sparkles,
+  Bot,
+  Target,
+  Eye,
+  Calendar,
+  Activity,
+  ChevronRight,
+  Send,
+  X,
+  AlertTriangle,
+  Upload,
+  Moon,
+  Sun
 } from 'lucide-react';
 
 // --- TYPES ---
@@ -49,6 +62,7 @@ interface Campaign {
   language: string;
   targetProduct: string;
   limitDaily: number;
+  frequency: 'immediate' | 'daily';
   status: 'idle' | 'running' | 'completed';
   progress: number;
   currentStep: string;
@@ -64,6 +78,9 @@ interface Lead {
   contactRole: string;
   status: 'found' | 'enriched' | 'sent' | 'opened' | 'responded' | 'booked' | 'lost';
   personalizedMessage: string;
+  email?: string;
+  phone?: string;
+  importedAt?: string;
 }
 
 interface OutreachLog {
@@ -80,9 +97,124 @@ interface OutreachLog {
   campaign?: Campaign;
 }
 
+// ─── HELPER COMPONENTS ────────────────────────────────────────────────────────
+const GlassCard = ({ children, className = '', glow = false }: { children: React.ReactNode; className?: string; glow?: boolean }) => (
+  <div className={`relative rounded-[24px] bg-card border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 ${glow ? 'shadow-primary/20 border-primary/20' : ''} ${className}`}>
+    {children}
+  </div>
+);
+
+const NavItem = ({ icon: Icon, label, active, onClick, badge }: { icon: React.ComponentType<{ className?: string }>; label: string; active: boolean; onClick: () => void; badge?: React.ReactNode }) => (
+  <button onClick={onClick}
+    className={`w-full flex items-center space-x-3.5 px-4 py-3.5 rounded-xl text-[14px] font-bold tracking-wide transition-all duration-200 group relative ${
+      active ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent'
+    }`}>
+    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-primary rounded-r-full shadow-md shadow-primary/30" />}
+    <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`} />
+    <span className="flex-1 text-left">{label}</span>
+    {badge}
+  </button>
+);
+
+const ProgressBar = ({ value, color }: { value: number; color?: string }) => (
+  <div className="w-full h-2 rounded-full overflow-hidden bg-slate-100">
+    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color || '#6366f1' }} />
+  </div>
+);
+
+const ScoreBadge = ({ score }: { score: number }) => (
+  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+    score >= 80 
+      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20' 
+      : score >= 50 
+        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20' 
+        : 'bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20'
+  }`}>
+    Score: {score}
+  </span>
+);
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const labels: Record<string, { text: string; style: string }> = {
+    found: { text: 'Encontrado', style: 'bg-blue-500/10 text-blue-600 dark:text-blue-500 border-blue-500/20' },
+    enriched: { text: 'Enriquecido', style: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+    sent: { text: 'Enviado', style: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20' },
+    opened: { text: 'Abriu', style: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' },
+    responded: { text: 'Respondeu', style: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20' },
+    booked: { text: 'Reunião', style: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20' },
+    lost: { text: 'Perdido', style: 'bg-muted/50 text-muted-foreground border-border' }
+  };
+  const config = labels[status] || { text: status, style: 'bg-muted/50 text-muted-foreground border-border' };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${config.style}`}>
+      {config.text}
+    </span>
+  );
+};
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs'>('dashboard');
+  const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('scoutly_logged_in') === '1');
+  const [inputPassword, setInputPassword] = useState('');
+  const [loginError, setLoginError] = useState(false);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs' | 'import'>('dashboard');
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
+  const [isAgentWorking, setIsAgentWorking] = useState(false);
+  const [agentStatusText, setAgentStatusText] = useState('');
+
+  // --- CUTE AGENT ANIMATION COMPONENT ---
+  const AgentWorkingOverlay = () => {
+    if (!isAgentWorking) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-card border border-border p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full text-center animate-in zoom-in duration-300">
+          <div className="relative w-24 h-24 mb-6">
+            <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
+            <div className="relative bg-indigo-600 w-24 h-24 rounded-full flex items-center justify-center shadow-lg border-4 border-background overflow-hidden">
+              {/* Cute Robot Face */}
+              <div className="flex flex-col items-center gap-1 mt-2">
+                <div className="flex gap-3">
+                  <div className="w-4 h-4 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-4 h-4 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                </div>
+                <div className="w-8 h-2 bg-white/50 rounded-full mt-2"></div>
+              </div>
+            </div>
+          </div>
+          <h3 className="text-lg font-black text-foreground tracking-tight mb-2">Equipe de IA Trabalhando...</h3>
+          <p className="text-sm text-muted-foreground font-semibold">{agentStatusText}</p>
+          <div className="w-full bg-muted rounded-full h-1.5 mt-6 overflow-hidden">
+            <div className="bg-indigo-600 h-1.5 rounded-full animate-pulse w-full"></div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [scheduleLead, setScheduleLead] = useState<Lead | null>(null);
+  const [scheduleData, setScheduleData] = useState({ date: '', time: '', platform: 'Google Meet', notes: '' });
+  
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('scoutly_theme') === 'dark' || 
+      (!localStorage.getItem('scoutly_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('scoutly_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('scoutly_theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const handleScheduleMeeting = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scheduleLead) return;
+    setLeads(prev => prev.map(l => l.id === scheduleLead.id ? { ...l, status: 'booked' } : l));
+    setScheduleLead(null);
+    alert(`Reunião agendada com sucesso com ${scheduleLead.contactName}!`);
+  };
 
   const [apiKeys, setApiKeys] = useState({
     openai: localStorage.getItem('scoutly_openai_key') || '',
@@ -179,6 +311,7 @@ export default function App() {
       language: 'Inglês',
       targetProduct: 'Scoutly Agent Core',
       limitDaily: 100,
+      frequency: 'daily',
       status: 'idle',
       progress: 0,
       currentStep: 'Pronto para iniciar'
@@ -191,7 +324,8 @@ export default function App() {
     prospectingArea: { countries: [], states: [], cities: '' },
     language: 'Português',
     targetProduct: 'Scoutly Agent Core',
-    limitDaily: 50
+    limitDaily: 50,
+    frequency: 'immediate'
   });
 
   // Derive available states from selected countries
@@ -244,41 +378,7 @@ export default function App() {
     return parts.join(' ');
   };
 
-  const [leads, setLeads] = useState<Lead[]>([
-    {
-      id: 'l1',
-      companyName: 'Acme SaaS Corp',
-      website: 'https://acmesaas.com',
-      score: 95,
-      scoreReason: 'Alto volume de contratações de vendas, site moderno em React, sem chatbot ativo de prospecção.',
-      contactName: 'Sarah Jenkins',
-      contactRole: 'VP of Sales',
-      status: 'booked',
-      personalizedMessage: 'Olá Sarah, notei que o time da Acme SaaS está escalando as operações em SP. Como vocês abordam leads outbound hoje? Vi que usam soluções de email tradicionais, o Scoutly pode automatizar 100% desse filtro...'
-    },
-    {
-      id: 'l2',
-      companyName: 'Alpha Marketing',
-      website: 'https://alphamkt.io',
-      score: 82,
-      scoreReason: 'Forte presença digital, foco em inbound, mas site carece de formulários de contato otimizados.',
-      contactName: 'Carlos Silva',
-      contactRole: 'Founder',
-      status: 'responded',
-      personalizedMessage: 'Oi Carlos, vi seu post recente sobre escalabilidade na Alpha Marketing. Criamos abordagens sob medida para agências que desejam lotar o funil comercial sem contratar mais SDRs...'
-    },
-    {
-      id: 'l3',
-      companyName: 'Beta Logistics',
-      website: 'https://betalogistics.com.br',
-      score: 45,
-      scoreReason: 'Baixa presença digital, sem indicação de uso de tecnologia B2B moderna, nicho muito tradicional.',
-      contactName: 'Roberto Mendes',
-      contactRole: 'Diretor Comercial',
-      status: 'lost',
-      personalizedMessage: ''
-    }
-  ]);
+  const [leads, setLeads] = useState<Lead[]>([]);
 
   // --- API BACKEND SYNC AND LOADERS ---
   const API_BASE = '/api';
@@ -295,8 +395,8 @@ export default function App() {
             industry: data.industry,
             description: data.description,
             valueProposition: data.value_proposition,
-            targetAudience: data.target_audience,
-            brandVoice: data.brand_voice
+            target_audience: data.target_audience,
+            brand_voice: data.brand_voice
           });
         }
       })
@@ -312,8 +412,8 @@ export default function App() {
             name: p.name,
             description: p.description,
             features: Array.isArray(p.features) ? p.features.join(', ') : (p.features || ''),
-            targetBuyer: p.target_buyer || '',
-            pricingPlans: p.pricing_plans || ''
+            target_buyer: p.target_buyer || '',
+            pricing_plans: p.pricing_plans || ''
           })));
         }
       })
@@ -334,8 +434,9 @@ export default function App() {
               cities: c.cities || ''
             },
             language: c.language,
-            targetProduct: c.target_product ? c.target_product.name : 'Scoutly Agent Core',
+            targetProduct: c.target_product || 'Scoutly Agent Core',
             limitDaily: c.limit_daily,
+            frequency: c.frequency || 'immediate',
             status: c.status,
             progress: c.progress,
             currentStep: c.current_step
@@ -422,25 +523,28 @@ export default function App() {
   const [runningCampaignId, setRunningCampaignId] = useState<string | null>(null);
 
   const startCampaign = async (campaignId: string) => {
+    const campToStart = campaigns.find(c => c.id === campaignId);
+    if (!campToStart) return;
+
     // Optimistic UI update
     setCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, status: 'running', progress: 5 } : c));
     setRunningCampaignId(campaignId);
 
-    // Call Laravel Backend campaign worker dispatch trigger
+    // Call Node.js Backend Engine
     try {
-      await fetch(`${API_BASE}/campaigns/${campaignId}/start`, { 
+      await fetch(`${API_BASE}/campaigns/start`, { 
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-OpenAI-Key': apiKeys.openai,
-          'X-Apollo-Key': apiKeys.apollo,
-          'X-Resend-Key': apiKeys.resend,
-          'X-WhatsApp-Token': apiKeys.whatsappToken,
-          'X-WhatsApp-Instance': apiKeys.whatsappInstance,
-          'X-Telegram-Bot-Token': apiKeys.telegramToken,
-          'X-Telegram-Chat-ID': apiKeys.telegramChatId,
-          'X-LinkedIn-Cookie': apiKeys.linkedinCookie
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          campaignId: campaignId,
+          frequency: campToStart.frequency,
+          searchCriteria: {
+            segment: campToStart.segment,
+            city: campToStart.prospectingArea.cities || 'São Paulo' // Default fallback
+          }
+        })
       });
     } catch {
       console.log('Running campaign in frontend demo fallback mode');
@@ -570,7 +674,6 @@ export default function App() {
     if (!newCampaign.name || !newCampaign.segment || newCampaign.prospectingArea.countries.length === 0) return;
 
     const tempId = `c_${Date.now()}`;
-    // Find target product id matching selected name
     const matchProd = products.find(p => p.name === newCampaign.targetProduct) || products[0];
 
     // Create locally
@@ -594,8 +697,9 @@ export default function App() {
           states: newCampaign.prospectingArea.states,
           cities: newCampaign.prospectingArea.cities,
           language: newCampaign.language,
-          target_product_id: matchProd ? Number(matchProd.id) : 1,
-          limit_daily: newCampaign.limitDaily
+          target_product: newCampaign.targetProduct,
+          limit_daily: newCampaign.limitDaily,
+          frequency: newCampaign.frequency
         })
       });
     } catch {
@@ -612,304 +716,281 @@ export default function App() {
     });
   };
 
+  if (!isLoggedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-6 relative overflow-hidden font-sans transition-colors duration-300">
+        {/* Decorative Orbs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[120px] pointer-events-none animate-float" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/20 rounded-full blur-[120px] pointer-events-none animate-float" style={{ animationDelay: '1.5s' }} />
+
+        <div className="w-full max-w-md relative z-10">
+          <GlassCard className="p-10 shadow-2xl shadow-primary/5 bg-card/80 backdrop-blur-xl animate-fadeIn" glow>
+            <div className="flex flex-col items-center mb-10">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 shadow-md shadow-primary/10">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <h1 className="text-3xl font-black text-foreground tracking-tight">SCOUTLY</h1>
+              <p className="text-xs text-primary font-bold tracking-[0.2em] uppercase mt-1">AI Revenue SDR Platform</p>
+            </div>
+
+            <form onSubmit={e => { e.preventDefault(); if (inputPassword === 'Guilmon@123') { sessionStorage.setItem('scoutly_logged_in', '1'); setIsLoggedIn(true); } else setLoginError(true); }}>
+              <label className="block text-sm font-bold text-muted-foreground mb-2">Senha de Acesso</label>
+              <input
+                type="password" value={inputPassword}
+                onChange={e => { setInputPassword(e.target.value); setLoginError(false); }}
+                placeholder="••••••••••"
+                className="w-full bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition mb-4 placeholder:text-muted-foreground"
+                autoFocus
+              />
+              {loginError && <p className="text-destructive text-xs mb-4 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" />Senha incorreta. Tente novamente.</p>}
+              <button type="submit" className="w-full py-3.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-sm font-bold transition-all duration-200 shadow-md shadow-primary/20 hover:scale-[1.01] active:scale-[0.99]">
+                Entrar na Plataforma
+              </button>
+            </form>
+            <p className="text-center text-[11px] text-muted-foreground mt-6 font-medium">Senha demo: <span className="text-foreground font-mono font-bold bg-muted px-1.5 py-0.5 rounded">Guilmon@123</span></p>
+          </GlassCard>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-[#08080C] text-gray-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans antialiased transition-colors duration-300">
       
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-[#0D0D15] border-r border-[#1C1C28] flex flex-col justify-between shrink-0">
+      {/* ════════════════ SIDEBAR ════════════════ */}
+      <aside className="w-80 bg-card border-r border-border flex flex-col justify-between shrink-0 relative z-10 shadow-sm transition-colors duration-300">
         <div>
           {/* Logo */}
-          <div className="p-6 border-b border-[#1C1C28] flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-indigo-600/10 border border-indigo-500/30 flex items-center justify-center shadow-lg overflow-hidden">
-              <img src="/logo.png" alt="Scoutly Logo" className="w-full h-full object-cover" />
-            </div>
-            <div>
-              <span className="font-bold text-lg tracking-wider bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                SCOUTLY
-              </span>
-              <span className="block text-[10px] text-indigo-400 font-semibold tracking-widest uppercase">
-                AI Revenue SDR
-              </span>
+          <div className="px-7 py-7 border-b border-border bg-card">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-sm relative shrink-0">
+                  <Sparkles className="w-5 h-5 text-primary absolute animate-pulse" />
+                </div>
+                <div>
+                  <div className="font-black text-xl tracking-widest text-foreground">SCOUTLY</div>
+                  <div className="text-[9px] text-primary font-bold tracking-[0.25em] uppercase mt-0.5">AI Revenue SDR</div>
+                </div>
+              </div>
+              <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="p-4 space-y-1.5">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                activeTab === 'dashboard'
-                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span>Dashboard</span>
-            </button>
+          {/* Nav */}
+          <div className="px-3 py-6 space-y-7">
+            <div>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] px-4 block mb-3">Visão Geral</span>
+              <div className="space-y-1.5">
+                <NavItem icon={TrendingUp} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+                <NavItem icon={Users} label="Pipeline & CRM" active={activeTab === 'crm'} onClick={() => setActiveTab('crm')} badge={<span className="ml-auto text-[10px] bg-slate-100 text-muted-foreground px-2 py-0.5 rounded-full font-bold border border-border/50">{leads.length}</span>} />
+                <NavItem icon={MessageSquare} label="Logs de Disparo" active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
+              </div>
+            </div>
 
-            <button
-              onClick={() => setActiveTab('campaigns')}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                activeTab === 'campaigns'
-                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
-              }`}
-            >
-              <Play className="w-4 h-4" />
-              <span>Campanhas IA</span>
-              {runningCampaignId && (
-                <span className="ml-auto w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
-              )}
-            </button>
+            <div>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] px-4 block mb-3">Operação e Campanhas</span>
+              <div className="space-y-1.5">
+                <NavItem icon={Play} label="Campanhas IA" active={activeTab === 'campaigns'} onClick={() => setActiveTab('campaigns')} badge={runningCampaignId ? <span className="w-2 h-2 rounded-full bg-indigo-600 ml-auto animate-pulse" /> : undefined} />
+                <NavItem icon={Upload} label="Importar Leads" active={activeTab === 'import'} onClick={() => setActiveTab('import')} />
+                <NavItem icon={Package} label="Produtos" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+              </div>
+            </div>
 
-            <button
-              onClick={() => setActiveTab('crm')}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                activeTab === 'crm'
-                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Pipeline & CRM</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                activeTab === 'products'
-                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>Meus Produtos</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                activeTab === 'profile'
-                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Perfil da Startup</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('memory')}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                activeTab === 'memory'
-                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
-              }`}
-            >
-              <BrainCircuit className="w-4 h-4" />
-              <span>Memória & Aprendizado</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                activeTab === 'logs'
-                  ? 'bg-[#181825] text-white font-medium shadow-inner border-l-2 border-indigo-500'
-                  : 'text-gray-400 hover:bg-[#11111B] hover:text-gray-200'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Logs de Disparos</span>
-            </button>
-          </nav>
+            <div>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] px-4 block mb-3">Ajustes & Inteligência</span>
+              <div className="space-y-1.5">
+                <NavItem icon={BrainCircuit} label="Memória & IA" active={activeTab === 'memory'} onClick={() => setActiveTab('memory')} />
+                <NavItem icon={Building2} label="Perfil da Startup" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* User Card */}
-        <div className="p-4 border-t border-[#1C1C28] flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-inner">
-            A
-          </div>
-          <div className="overflow-hidden">
-            <span className="block text-xs font-semibold text-gray-200 truncate">André</span>
-            <span className="block text-[10px] text-gray-500 truncate">Workspace: {companyProfile.name}</span>
+        {/* User card */}
+        <div className="px-4 py-6 border-t border-border bg-card">
+          <div className="flex items-center space-x-3.5 p-4 rounded-xl bg-muted/50 border border-border shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-sm font-black text-white shadow-md shadow-primary/20 shrink-0">A</div>
+            <div className="overflow-hidden flex-1 min-w-0">
+              <div className="text-sm font-bold text-foreground truncate">André</div>
+              <div className="text-xs text-muted-foreground truncate mt-0.5">{companyProfile.name}</div>
+            </div>
+            <button onClick={() => { sessionStorage.removeItem('scoutly_logged_in'); setIsLoggedIn(false); }} className="text-xs text-primary hover:text-primary/80 font-bold transition ml-2 shrink-0">Sair</button>
           </div>
         </div>
       </aside>
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#0A0A10]">
-        
+      <main className="flex-1 flex flex-col min-w-0 bg-background transition-colors duration-300 relative">
+        <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
         {/* TOP BAR */}
-        <header className="h-16 border-b border-[#1C1C28] px-8 flex items-center justify-between bg-[#0C0C14]">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold tracking-wide text-white capitalize">
-              {activeTab === 'profile' ? 'Configuração da Startup' : activeTab === 'products' ? 'Catálogo de Produtos' : activeTab}
+        <header className="h-24 border-b border-border px-10 flex items-center justify-between bg-card/50 backdrop-blur-md shrink-0 relative z-20 shadow-sm transition-colors duration-300">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-extrabold text-foreground tracking-tight uppercase">
+              {activeTab === 'dashboard' && 'Dashboard'}
+              {activeTab === 'campaigns' && 'Campanhas Autônomas'}
+              {activeTab === 'crm' && 'Pipeline & CRM'}
+              {activeTab === 'products' && 'Catálogo de Produtos'}
+              {activeTab === 'profile' && 'Configuração da Startup'}
+              {activeTab === 'memory' && 'Memória & Aprendizado'}
+              {activeTab === 'logs' && 'Logs de Disparos'}
+              {activeTab === 'import' && 'Importar Leads'}
             </h1>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            <span className="flex items-center space-x-2 text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded-full font-medium">
-              <BrainCircuit className="w-3.5 h-3.5" />
-              <span>Agente Autônomo Ativo</span>
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-2 text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3.5 py-2 rounded-full font-bold shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Agente Ativo
+            </span>
+            <span className="flex items-center gap-2 text-xs bg-primary/10 text-primary border border-primary/20 px-3.5 py-2 rounded-full font-bold shadow-sm">
+              <BrainCircuit className="w-4 h-4 text-primary" />
+              HybridScorer Online
             </span>
           </div>
         </header>
 
         {/* WORKSPACE CONTENT */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-10 bg-background/50">
           
           {/* DASHBOARD TAB */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-8 animate-fadeIn">
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
               
               {/* Context Callout */}
-              <div className="p-5 rounded-xl bg-gradient-to-r from-indigo-900/20 via-indigo-900/5 to-transparent border border-indigo-500/20 flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                  <BrainCircuit className="w-5 h-5 text-indigo-400" />
+              <GlassCard className="p-7 bg-primary/5 border border-primary/20 shadow-sm" glow={false}>
+                <div className="flex items-start gap-6">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 shadow-sm">
+                    <Bot className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-foreground tracking-wide">Contexto de Treinamento Ativo</h4>
+                    <p className="text-xs text-muted-foreground mt-2 max-w-4xl leading-relaxed">
+                      O Scoutly está configurado para prospectar no contexto de <strong className="text-foreground font-bold">{companyProfile.name}</strong> ({companyProfile.industry}), focando no produto <strong className="text-foreground font-bold">{products[0]?.name || 'Nenhum cadastrado'}</strong>. O motor de scoring <span className="text-primary font-bold">HybridScorer</span> combina regras personalizáveis com LLM para qualificar leads em tempo real.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Contexto de Treinamento Ativo</h4>
-                  <p className="text-xs text-gray-400 mt-1 max-w-3xl leading-relaxed">
-                    O Scoutly está configurado para prospectar no contexto de <strong>{companyProfile.name}</strong> ({companyProfile.industry}), focando no produto <strong>{products[0]?.name || 'Nenhum cadastrado'}</strong>. As abordagens, avaliações de score e critérios de filtro do agente de IA responderão dinamicamente a esse escopo.
-                  </p>
-                </div>
-              </div>
+              </GlassCard>
 
               {/* Statistics Grid */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-[#0E0E18] border border-[#1C1C28] p-5 rounded-xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl" />
-                  <span className="text-xs text-gray-400 font-medium block">Empresas Encontradas</span>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <span className="text-3xl font-bold text-white">{leads.length * 15}</span>
-                    <span className="text-xs text-emerald-400 font-semibold flex items-center">
-                      <TrendingUp className="w-3 h-3 mr-0.5" /> +12%
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-[#0E0E18] border border-[#1C1C28] p-5 rounded-xl relative overflow-hidden">
-                  <span className="text-xs text-gray-400 font-medium block">Mensagens Enviadas</span>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <span className="text-3xl font-bold text-white">{leads.filter(l => l.status !== 'found' && l.status !== 'enriched').length * 8}</span>
-                    <span className="text-xs text-indigo-400 font-medium block">Cadência IA</span>
-                  </div>
-                </div>
-
-                <div className="bg-[#0E0E18] border border-[#1C1C28] p-5 rounded-xl relative overflow-hidden">
-                  <span className="text-xs text-gray-400 font-medium block">Taxa de Abertura</span>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <span className="text-3xl font-bold text-white">74.2%</span>
-                    <span className="text-xs text-emerald-400 font-semibold flex items-center">
-                      <TrendingUp className="w-3 h-3 mr-0.5" /> +4.1%
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-[#0E0E18] border border-[#1C1C28] p-5 rounded-xl relative overflow-hidden">
-                  <span className="text-xs text-gray-400 font-medium block">Reuniões Agendadas</span>
-                  <div className="flex items-baseline space-x-2 mt-2">
-                    <span className="text-3xl font-bold text-white">{leads.filter(l => l.status === 'booked').length}</span>
-                    <span className="text-xs text-emerald-500 font-semibold block">Conversão Ideal</span>
-                  </div>
-                </div>
+                {[
+                  { label: 'Empresas Encontradas', value: leads.length * 15, suffix: '', trend: '+12%', trendUp: true, icon: Target, color: '#6366f1' },
+                  { label: 'Mensagens Enviadas', value: leads.filter(l => l.status !== 'found' && l.status !== 'enriched').length * 8, suffix: '', trend: 'Cadência IA', trendUp: true, icon: Send, color: '#4f46e5' },
+                  { label: 'Taxa de Abertura', value: 74.2, suffix: '%', trend: '+4.1%', trendUp: true, icon: Eye, color: '#f59e0b' },
+                  { label: 'Reuniões Agendadas', value: leads.filter(l => l.status === 'booked').length, suffix: '', trend: 'Conversão Ideal', trendUp: true, icon: Calendar, color: '#10b981' }
+                ].map(({ label, value, suffix, trend, trendUp, icon: Icon, color }) => (
+                  <GlassCard key={label} className="p-6 bg-card border border-border shadow-sm flex flex-col justify-between h-40">
+                    <div className="flex justify-between items-start">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm" style={{ background: `${color}15`, border: `1px solid ${color}30` }}>
+                        <Icon className="w-5.5 h-5.5" style={{ color }} />
+                      </div>
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                        trendUp ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-border'
+                      }`}>
+                        {trend}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">{label}</span>
+                      <div className="flex items-baseline gap-1 mt-1">
+                        <span className="text-3xl font-black text-foreground tracking-tight">{value}</span>
+                        {suffix && <span className="text-sm text-muted-foreground font-bold ml-0.5">{suffix}</span>}
+                      </div>
+                    </div>
+                  </GlassCard>
+                ))}
               </div>
 
               {/* Main Dashboard Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 {/* Active Agent Activity Feed */}
-                <div className="lg:col-span-2 bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6 flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-sm font-semibold text-white tracking-wide uppercase">Atividade do Agente em Tempo Real</h3>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    </div>
+                <GlassCard className="lg:col-span-2 p-7 bg-card border border-border shadow-sm">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-sm font-bold text-foreground tracking-wide uppercase">Atividade do Agente em Tempo Real</h3>
+                    <span className="flex items-center gap-2 text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3 py-1.5 rounded-full font-bold shadow-sm">
+                      <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />Tempo Real
+                    </span>
+                  </div>
 
-                    <div className="space-y-4">
-                      {leads.slice(0, 3).map((lead) => (
-                        <div key={lead.id} className="p-4 rounded-lg bg-[#12121E] border border-[#1F1F30] flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <span className="font-semibold text-white text-sm">{lead.companyName}</span>
-                              <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ${
-                                lead.score >= 80 ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-red-950/50 text-red-400 border border-red-500/20'
-                              }`}>
-                                Score: {lead.score}
-                              </span>
-                            </div>
-                            <span className="block text-xs text-gray-400 mt-1">{lead.contactName} ({lead.contactRole})</span>
-                            <p className="text-xs text-indigo-300 italic mt-2 line-clamp-1">"{lead.scoreReason}"</p>
+                  <div className="space-y-4">
+                    {leads.slice(0, 3).map((lead) => (
+                      <button key={lead.id} onClick={() => { setSelectedLead(lead); setActiveTab('crm'); }}
+                        className="w-full p-5 rounded-2xl bg-muted/30 border border-border hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 flex items-center justify-between text-left group shadow-sm">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <div className="flex items-center gap-3">
+                            <span className="font-extrabold text-foreground text-sm tracking-wide">{lead.companyName}</span>
+                            <ScoreBadge score={lead.score} />
                           </div>
-                          <span className="text-xs font-semibold px-2 py-1 rounded bg-[#1B1B2B] text-gray-300">
-                            {lead.status}
-                          </span>
+                          <span className="block text-xs text-muted-foreground mt-1 font-semibold">{lead.contactName} ({lead.contactRole})</span>
+                          <p className="text-xs text-muted-foreground italic mt-2.5 line-clamp-1 leading-relaxed">"{lead.scoreReason}"</p>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <StatusBadge status={lead.status} />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+                      </button>
+                    ))}
                   </div>
 
                   <button 
                     onClick={() => setActiveTab('crm')} 
-                    className="mt-6 w-full text-center text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center justify-center space-x-1.5"
+                    className="mt-6 w-full text-center text-xs text-primary hover:text-primary/80 font-bold flex items-center justify-center space-x-1.5 transition"
                   >
                     <span>Ver Pipeline de Leads Completo</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
-                </div>
+                </GlassCard>
 
                 {/* A/B Copywriting Variant Comparison Card */}
-                <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6 space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-semibold text-white tracking-wide uppercase">Performance de Teste A/B</h3>
-                    <span className="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">Ativo</span>
+                <GlassCard className="p-7 bg-card border border-border shadow-sm">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-sm font-bold text-foreground tracking-wide uppercase">Performance de Teste A/B</h3>
+                    <span className="text-[9px] bg-primary/10 text-primary font-extrabold px-2.5 py-1.5 rounded-full border border-primary/20 tracking-wider">ATIVO</span>
                   </div>
                   
                   <div className="space-y-4">
-                    <div className="p-4 rounded-lg bg-[#12121E] border border-[#1F1F30]">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-bold text-white">Variante A (Pitch de Valor)</span>
-                        <span className="text-[10px] text-indigo-400 font-bold">Conv. 14.5%</span>
-                      </div>
-                      <span className="text-[10px] text-gray-500">CTA de valor de negócio direto sugerindo ganhos de ROI no Vysify CRM.</span>
-                      <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[#1C1C28]/50 text-left">
-                        <div>
-                          <span className="block text-[9px] text-gray-500 uppercase">Disparos</span>
-                          <span className="text-xs font-semibold text-white">62 leads</span>
+                    {[
+                      { label: 'Variante A', sublabel: 'Pitch de Valor', desc: 'CTA de valor de negócio direto sugerindo ganhos de ROI no Vysify CRM.', conv: 14.5, shots: 62, meetings: 9, winner: false },
+                      { label: 'Variante B', sublabel: 'Foco em Dor', desc: 'Abordagem consultiva focando no maior gargalo de funil que a empresa tem.', conv: 22.8, shots: 57, meetings: 13, winner: true }
+                    ].map(v => (
+                      <div key={v.label} className={`p-5 rounded-2xl border transition-all duration-300 ${v.winner ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-muted/30 border-border'}`}>
+                        <div className="flex justify-between items-start mb-1.5">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-foreground">{v.label} ({v.sublabel})</span>
+                              {v.winner && <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wide">Vencedor</span>}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground mt-1 block leading-relaxed">{v.desc}</span>
+                          </div>
+                          <span className={`text-base font-black ${v.winner ? 'text-emerald-500' : 'text-foreground'}`}>{v.conv}%</span>
                         </div>
-                        <div>
-                          <span className="block text-[9px] text-gray-500 uppercase">Respostas</span>
-                          <span className="text-xs font-semibold text-emerald-400">9 reuniões</span>
+                        <div className="mt-3.5">
+                          <ProgressBar value={v.conv * 4} color={v.winner ? '#10b981' : '#6366f1'} />
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-lg bg-[#12121E] border border-[#1F1F30]">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-bold text-white">Variante B (Foco em Dor)</span>
-                        <span className="text-[10px] text-indigo-400 font-bold">Conv. 22.8%</span>
-                      </div>
-                      <span className="text-[10px] text-gray-500">Abordagem consultiva focando no maior gargalo de funil que a empresa tem.</span>
-                      <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[#1C1C28]/50 text-left">
-                        <div>
-                          <span className="block text-[9px] text-gray-500 uppercase">Disparos</span>
-                          <span className="text-xs font-semibold text-white">57 leads</span>
-                        </div>
-                        <div>
-                          <span className="block text-[9px] text-gray-500 uppercase">Respostas</span>
-                          <span className="text-xs font-semibold text-emerald-400">13 reuniões</span>
+                        <div className="grid grid-cols-2 gap-2 mt-4 pt-3.5 border-t border-border/50 text-left">
+                          <div>
+                            <span className="block text-[9px] text-muted-foreground uppercase font-bold">Disparos</span>
+                            <span className="text-xs font-bold text-foreground">{v.shots} leads</span>
+                          </div>
+                          <div>
+                            <span className="block text-[9px] text-muted-foreground uppercase font-bold">Respostas</span>
+                            <span className="text-xs font-bold text-emerald-500">{v.meetings} reuniões</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
 
                   <button 
                     onClick={() => setActiveTab('logs')} 
-                    className="w-full py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 rounded-lg text-xs font-semibold transition duration-200"
+                    className="mt-6 w-full py-3 bg-muted hover:bg-muted/80 text-foreground rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 animate-pulse"
                   >
+                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
                     Análise e Logs de Disparos
                   </button>
-                </div>
+                </GlassCard>
 
               </div>
 
@@ -918,60 +999,60 @@ export default function App() {
 
           {/* CAMPAIGNS TAB */}
           {activeTab === 'campaigns' && (
-            <div className="space-y-8 animate-fadeIn">
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
               
               {/* Campaign Creation & Config */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 {/* Form */}
-                <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6">
-                  <h3 className="text-sm font-semibold text-white mb-4 flex items-center space-x-2">
-                    <Plus className="w-4 h-4 text-indigo-400" />
+                <GlassCard className="p-7 ">
+                  <h3 className="text-sm font-extrabold text-foreground mb-6 flex items-center space-x-2.5 uppercase tracking-wide">
+                    <Plus className="w-4.5 h-4.5 text-indigo-600" />
                     <span>Nova Campanha Autônoma</span>
                   </h3>
 
-                  <form onSubmit={handleCreateCampaign} className="space-y-5">
+                  <form onSubmit={handleCreateCampaign} className="space-y-6">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Nome da Campanha</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nome da Campanha</label>
                       <input 
                         type="text" 
                         value={newCampaign.name}
                         onChange={e => setNewCampaign({...newCampaign, name: e.target.value})}
                         placeholder="Ex: SaaS Growth São Paulo"
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Segmento Alvo</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Segmento Alvo</label>
                       <input 
                         type="text" 
                         value={newCampaign.segment}
                         onChange={e => setNewCampaign({...newCampaign, segment: e.target.value})}
                         placeholder="Ex: Agências de Tecnologia, Clínicas Estéticas"
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         required
                       />
                     </div>
 
                     {/* ── GEO-TARGETING ── */}
-                    <div className="border border-[#1F1F30] rounded-xl p-4 space-y-4 bg-[#0B0B12]">
-                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block">📍 Área de Prospecção</span>
+                    <div className="border border-border rounded-2xl p-5 space-y-4 bg-muted/30/50">
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">📍 Área de Prospecção</span>
 
                       {/* Countries */}
                       <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-2">Países <span className="text-gray-600">(selecione um ou mais)</span></label>
+                        <label className="block text-xs font-bold text-muted-foreground mb-2.5">Países <span className="text-slate-400 font-medium">(selecione um ou mais)</span></label>
                         <div className="flex flex-wrap gap-2">
                           {Object.entries(COUNTRY_DATA).map(([code, { label, flag }]) => (
                             <button
                               key={code}
                               type="button"
                               onClick={() => toggleCountry(code)}
-                              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all duration-150 shadow-sm ${
                                 newCampaign.prospectingArea.countries.includes(code)
-                                  ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
-                                  : 'bg-[#12121E] border-[#1F1F30] text-gray-400 hover:border-indigo-500/40 hover:text-gray-200'
+                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                                  : 'bg-card border-border text-muted-foreground hover:border-slate-300 hover:text-foreground'
                               }`}
                             >
                               <span>{flag}</span>
@@ -981,27 +1062,27 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* States - only shown when countries with states are selected */}
+                      {/* States */}
                       {availableStates.length > 0 && (
                         <div>
-                          <label className="block text-xs font-semibold text-gray-400 mb-2">
-                            Estado / Província <span className="text-gray-600">(opcional — sem seleção = âmbito nacional)</span>
+                          <label className="block text-xs font-bold text-muted-foreground mb-2.5">
+                            Estado / Província <span className="text-slate-400 font-medium">(opcional)</span>
                           </label>
-                          <div className="max-h-36 overflow-y-auto pr-1 space-y-1 custom-scroll">
+                          <div className="max-h-40 overflow-y-auto pr-1 space-y-3.5 custom-scroll">
                             {newCampaign.prospectingArea.countries.map(code => (
                               COUNTRY_DATA[code]?.states.length ? (
-                                <div key={code}>
-                                  <span className="text-[10px] font-bold text-gray-600 uppercase block mb-1">{COUNTRY_DATA[code].flag} {COUNTRY_DATA[code].label}</span>
-                                  <div className="flex flex-wrap gap-1.5 mb-2">
+                                <div key={code} className="border-t border-border/60 pt-2.5 first:border-0 first:pt-0">
+                                  <span className="text-[9px] font-black text-slate-400 uppercase block mb-2">{COUNTRY_DATA[code].flag} {COUNTRY_DATA[code].label}</span>
+                                  <div className="flex flex-wrap gap-1.5">
                                     {COUNTRY_DATA[code].states.map(state => (
                                       <button
                                         key={state}
                                         type="button"
                                         onClick={() => toggleState(state)}
-                                        className={`px-2 py-1 rounded text-[10px] font-semibold border transition-all duration-150 ${
+                                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all duration-150 ${
                                           newCampaign.prospectingArea.states.includes(state)
-                                            ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                                            : 'bg-[#0E0E18] border-[#1C1C28] text-gray-500 hover:text-gray-300 hover:border-indigo-500/30'
+                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                                            : 'bg-card border-border text-muted-foreground hover:text-foreground'
                                         }`}
                                       >
                                         {state}
@@ -1018,39 +1099,39 @@ export default function App() {
                       {/* Cities */}
                       {newCampaign.prospectingArea.countries.length > 0 && (
                         <div>
-                          <label className="block text-xs font-semibold text-gray-400 mb-1">
-                            Cidades <span className="text-gray-600">(opcional, separadas por vírgula)</span>
+                          <label className="block text-xs font-bold text-muted-foreground mb-2.5">
+                            Cidades <span className="text-slate-400 font-medium">(opcional, separadas por vírgula)</span>
                           </label>
                           <input 
                             type="text" 
                             value={newCampaign.prospectingArea.cities}
                             onChange={e => setNewCampaign({...newCampaign, prospectingArea: {...newCampaign.prospectingArea, cities: e.target.value}})}
                             placeholder="Ex: São Paulo, Campinas, Rio de Janeiro"
-                            className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                            className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-indigo-500 placeholder:text-slate-400"
                           />
                         </div>
                       )}
 
                       {/* Area Summary */}
                       {newCampaign.prospectingArea.countries.length > 0 && (
-                        <div className="p-3 rounded-lg bg-indigo-950/20 border border-indigo-500/20">
-                          <span className="text-[10px] font-bold text-indigo-400 uppercase block mb-1">Escopo configurado</span>
-                          <p className="text-xs text-gray-300 leading-relaxed">
+                        <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 shadow-sm">
+                          <span className="text-[10px] font-black text-indigo-600 uppercase block mb-1">Escopo configurado</span>
+                          <p className="text-xs text-slate-650 leading-relaxed font-semibold">
                             {buildRegionLabel(newCampaign.prospectingArea)}
                           </p>
                           {newCampaign.prospectingArea.states.length === 0 && (
-                            <span className="text-[10px] text-amber-400 mt-1 block">⚠ Sem estado selecionado: agentes atuarão no país inteiro</span>
+                            <span className="text-[10px] text-amber-600 mt-1.5 block font-bold">⚠ Sem estado selecionado: agentes atuarão no país inteiro</span>
                           )}
                         </div>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Idioma</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Idioma</label>
                       <select 
                         value={newCampaign.language}
                         onChange={e => setNewCampaign({...newCampaign, language: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
                       >
                         <option value="Português">Português</option>
                         <option value="Inglês">Inglês</option>
@@ -1061,11 +1142,11 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Produto a Ser Divulgado</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Produto a Ser Divulgado</label>
                       <select 
                         value={newCampaign.targetProduct}
                         onChange={e => setNewCampaign({...newCampaign, targetProduct: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
                       >
                         {products.map(p => (
                           <option key={p.id} value={p.name}>{p.name}</option>
@@ -1073,46 +1154,61 @@ export default function App() {
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Limite Diário de Abordagens</label>
-                      <input 
-                        type="number" 
-                        value={newCampaign.limitDaily}
-                        onChange={e => setNewCampaign({...newCampaign, limitDaily: parseInt(e.target.value) || 50})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Limite Diário</label>
+                        <input 
+                          type="number" 
+                          value={newCampaign.limitDaily}
+                          onChange={e => setNewCampaign({...newCampaign, limitDaily: parseInt(e.target.value) || 50})}
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Frequência</label>
+                        <select 
+                          value={newCampaign.frequency}
+                          onChange={e => setNewCampaign({...newCampaign, frequency: e.target.value as 'immediate' | 'daily'})}
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
+                        >
+                          <option value="immediate">Rodar Agora (1x)</option>
+                          <option value="daily">Job Diário (Autônomo)</option>
+                        </select>
+                      </div>
                     </div>
 
                     <button 
                       type="submit"
                       disabled={newCampaign.prospectingArea.countries.length === 0}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition duration-200 mt-2 shadow-lg shadow-indigo-500/20"
+                      className="w-full py-3.5 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all duration-200 mt-2 shadow-md shadow-slate-900/10 flex items-center justify-center gap-1.5"
                     >
+                      <Play className="w-3.5 h-3.5 text-white" />
                       Criar Campanha
                     </button>
                   </form>
-                </div>
+                </GlassCard>
 
                 {/* Campaigns List */}
-                <div className="lg:col-span-2 space-y-4">
+                <div className="lg:col-span-2 space-y-5">
                   {campaigns.map(camp => (
-                    <div key={camp.id} className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6 relative overflow-hidden">
+                    <GlassCard key={camp.id} className="p-7 ">
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center space-x-3">
-                            <h4 className="font-semibold text-white">{camp.name}</h4>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            <h4 className="font-extrabold text-foreground text-sm tracking-wide">{camp.name}</h4>
+                            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border uppercase tracking-wider ${
                               camp.status === 'running' 
-                                ? 'bg-indigo-950 text-indigo-400 border border-indigo-500/30' 
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-100' 
                                 : camp.status === 'completed'
-                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30'
-                                : 'bg-gray-800 text-gray-400'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                : 'bg-slate-100 text-muted-foreground border-border'
                             }`}>
                               {camp.status === 'running' ? 'Executando' : camp.status === 'completed' ? 'Finalizada' : 'Aguardando'}
                             </span>
                           </div>
                           
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-400">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs text-muted-foreground font-semibold">
                             <span><strong>Segmento:</strong> {camp.segment}</span>
                             <span><strong>Região:</strong> {buildRegionLabel(camp.prospectingArea)}</span>
                             <span><strong>Produto:</strong> {camp.targetProduct}</span>
@@ -1122,9 +1218,9 @@ export default function App() {
                         {camp.status === 'idle' && (
                           <button 
                             onClick={() => startCampaign(camp.id)}
-                            className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-md transition"
+                            className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm transition"
                           >
-                            <Play className="w-3 h-3" />
+                            <Play className="w-3 h-3 text-white" />
                             <span>Iniciar</span>
                           </button>
                         )}
@@ -1132,23 +1228,18 @@ export default function App() {
 
                       {/* Progress bar / AI output */}
                       {(camp.status === 'running' || camp.status === 'completed') && (
-                        <div className="mt-6 pt-4 border-t border-[#1C1C28]/80">
-                          <div className="flex justify-between text-xs text-gray-400 mb-1">
-                            <span className="flex items-center space-x-1.5 text-indigo-400">
-                              {camp.status === 'running' && <Loader2 className="w-3 h-3 animate-spin" />}
+                        <div className="mt-6 pt-4 border-t border-slate-100">
+                          <div className="flex justify-between text-xs text-muted-foreground mb-2.5 font-bold">
+                            <span className="flex items-center space-x-1.5 text-indigo-600">
+                              {camp.status === 'running' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                               <span>{camp.currentStep}</span>
                             </span>
                             <span>{camp.progress}%</span>
                           </div>
-                          <div className="w-full bg-[#12121E] h-1.5 rounded-full overflow-hidden">
-                            <div 
-                              className="bg-indigo-500 h-full transition-all duration-500" 
-                              style={{ width: `${camp.progress}%` }}
-                            />
-                          </div>
+                          <ProgressBar value={camp.progress} color={camp.status === 'completed' ? '#10b981' : '#6366f1'} />
                         </div>
                       )}
-                    </div>
+                    </GlassCard>
                   ))}
                 </div>
 
@@ -1159,242 +1250,248 @@ export default function App() {
 
           {/* CRM PIPELINE TAB */}
           {activeTab === 'crm' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-sm font-semibold text-white tracking-wide uppercase">Pipeline de Vendas Automatizado</h3>
-                  <div className="text-xs text-gray-400">
-                    Clique em um lead para visualizar a personalização da IA
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
+              <div className="flex justify-between items-center bg-card border border-border rounded-2xl p-7 shadow-sm">
+                <div>
+                  <h3 className="text-base font-extrabold text-foreground tracking-tight uppercase">Pipeline de Vendas Automatizado</h3>
+                  <p className="text-xs text-muted-foreground mt-1.5 font-semibold">Gerencie e qualifique cada lead prospectado pela IA em tempo real.</p>
+                </div>
+                <div className="text-xs text-muted-foreground font-bold bg-slate-100/80 border border-border/50 px-4 py-2.5 rounded-xl shadow-sm">
+                  💡 Clique em um lead para visualizar a personalização da IA
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                
+                {/* Column 1: Encontrados */}
+                <div className="space-y-4 bg-muted/30/70 p-4.5 rounded-2xl border border-border/50 min-h-[600px] flex flex-col shadow-sm">
+                  <div className="flex justify-between items-center bg-card px-4 py-3 rounded-xl border border-border shadow-sm border-l-4 border-blue-500">
+                    <span className="text-xs font-bold text-slate-700">Encontrados</span>
+                    <span className="text-[10px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-100 font-black">
+                      {leads.filter(l => l.status === 'found' || l.status === 'enriched').length}
+                    </span>
+                  </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto max-h-[680px] pr-1">
+                    {leads.filter(l => l.status === 'found' || l.status === 'enriched').map(lead => (
+                      <button key={lead.id} onClick={() => setSelectedLead(lead)}
+                        className="w-full text-left p-4.5 bg-card border border-border hover:border-blue-400 rounded-xl shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 block group">
+                        <span className="block text-xs font-extrabold text-foreground group-hover:text-blue-600 transition-colors">{lead.companyName}</span>
+                        <span className="block text-[10px] text-slate-400 font-semibold mt-1.5">{lead.contactRole || 'Sem contato identificado'}</span>
+                        <div className="flex justify-between items-center mt-4">
+                          <ScoreBadge score={lead.score} />
+                          <span className="text-[10px] text-slate-400 font-mono font-bold truncate max-w-[110px]">{lead.website.replace('https://', '').replace('www.', '')}</span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  
-                  {/* Column 1: Encontrados */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-[#12121E] px-3 py-2 rounded-lg border-l-2 border-blue-500">
-                      <span className="text-xs font-semibold text-gray-300">Encontrados</span>
-                      <span className="text-[10px] bg-blue-950 text-blue-400 px-2 py-0.5 rounded font-bold">
-                        {leads.filter(l => l.status === 'found' || l.status === 'enriched').length}
-                      </span>
-                    </div>
-                    {leads.filter(l => l.status === 'found' || l.status === 'enriched').map(lead => (
-                      <div key={lead.id} className="p-3 bg-[#0B0B12] border border-[#1C1C28] rounded-lg">
-                        <span className="block text-xs font-bold text-white">{lead.companyName}</span>
-                        <span className="block text-[10px] text-gray-400 mt-1">{lead.contactRole}</span>
-                        <div className="flex justify-between items-center mt-3">
-                          <span className="text-[9px] bg-blue-950 text-blue-400 px-1.5 py-0.5 rounded">Score: {lead.score}</span>
-                          <span className="text-[9px] text-gray-500">{lead.website.replace('https://', '')}</span>
-                        </div>
-                      </div>
-                    ))}
+                {/* Column 2: Outreach */}
+                <div className="space-y-4 bg-muted/30/70 p-4.5 rounded-2xl border border-border/50 min-h-[600px] flex flex-col shadow-sm">
+                  <div className="flex justify-between items-center bg-card px-4 py-3 rounded-xl border border-border shadow-sm border-l-4 border-indigo-500">
+                    <span className="text-xs font-bold text-slate-700">Outreach / Enviado</span>
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-100 font-black">
+                      {leads.filter(l => l.status === 'sent' || l.status === 'opened').length}
+                    </span>
                   </div>
-
-                  {/* Column 2: Mensagem Enviada / Aberta */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-[#12121E] px-3 py-2 rounded-lg border-l-2 border-indigo-500">
-                      <span className="text-xs font-semibold text-gray-300">Outreach / Enviado</span>
-                      <span className="text-[10px] bg-indigo-950 text-indigo-400 px-2 py-0.5 rounded font-bold">
-                        {leads.filter(l => l.status === 'sent' || l.status === 'opened').length}
-                      </span>
-                    </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto max-h-[680px] pr-1">
                     {leads.filter(l => l.status === 'sent' || l.status === 'opened').map(lead => (
-                      <div key={lead.id} className="p-3 bg-[#0B0B12] border border-[#1C1C28] rounded-lg">
-                        <span className="block text-xs font-bold text-white">{lead.companyName}</span>
-                        <span className="block text-[10px] text-gray-400 mt-1">{lead.contactName}</span>
-                        
-                        <div className="mt-2 p-2 bg-[#12121F] border border-[#1F1F35] rounded text-[10px] text-gray-400 leading-normal italic line-clamp-2">
+                      <button key={lead.id} onClick={() => setSelectedLead(lead)}
+                        className="w-full text-left p-4.5 bg-card border border-border hover:border-indigo-400 rounded-xl shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 block group">
+                        <span className="block text-xs font-extrabold text-foreground group-hover:text-indigo-600 transition-colors">{lead.companyName}</span>
+                        <span className="block text-[10px] text-slate-400 font-semibold mt-1.5">{lead.contactName}</span>
+                        <div className="mt-2.5 p-3.5 bg-muted/30 border border-slate-100 rounded-xl text-[10px] text-muted-foreground leading-normal italic line-clamp-2">
                           "{lead.personalizedMessage}"
                         </div>
-
-                        <div className="flex justify-between items-center mt-3">
-                          <span className="text-[9px] bg-indigo-950 text-indigo-400 px-1.5 py-0.5 rounded">Score: {lead.score}</span>
-                          <span className="text-[10px] text-emerald-400 font-semibold">{lead.status}</span>
+                        <div className="flex justify-between items-center mt-4">
+                          <ScoreBadge score={lead.score} />
+                          <span className="text-[10px] text-indigo-600 font-bold uppercase">{lead.status}</span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
+                </div>
 
-                  {/* Column 3: Respondido */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-[#12121E] px-3 py-2 rounded-lg border-l-2 border-amber-500">
-                      <span className="text-xs font-semibold text-gray-300">Respondido</span>
-                      <span className="text-[10px] bg-amber-950 text-amber-400 px-2 py-0.5 rounded font-bold">
-                        {leads.filter(l => l.status === 'responded').length}
-                      </span>
-                    </div>
+                {/* Column 3: Respondido */}
+                <div className="space-y-4 bg-muted/30/70 p-4.5 rounded-2xl border border-border/50 min-h-[600px] flex flex-col shadow-sm">
+                  <div className="flex justify-between items-center bg-card px-4 py-3 rounded-xl border border-border shadow-sm border-l-4 border-amber-500">
+                    <span className="text-xs font-bold text-slate-700">Respondido</span>
+                    <span className="text-[10px] bg-amber-50 text-amber-700 px-2.5 py-0.5 rounded-full border border-amber-100 font-black">
+                      {leads.filter(l => l.status === 'responded').length}
+                    </span>
+                  </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto max-h-[680px] pr-1">
                     {leads.filter(l => l.status === 'responded').map(lead => (
-                      <div key={lead.id} className="p-3 bg-[#0B0B12] border border-[#1C1C28] rounded-lg">
-                        <span className="block text-xs font-bold text-white">{lead.companyName}</span>
-                        <span className="block text-[10px] text-gray-400 mt-1">{lead.contactName}</span>
-                        
-                        <div className="mt-2 p-2 bg-[#12121F] border border-[#1F1F35] rounded text-[10px] text-gray-400 leading-normal italic">
+                      <button key={lead.id} onClick={() => setSelectedLead(lead)}
+                        className="w-full text-left p-4.5 bg-card border border-border hover:border-amber-400 rounded-xl shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 block group">
+                        <span className="block text-xs font-extrabold text-foreground group-hover:text-amber-600 transition-colors">{lead.companyName}</span>
+                        <span className="block text-[10px] text-slate-400 font-semibold mt-1.5">{lead.contactName}</span>
+                        <div className="mt-2.5 p-3.5 bg-muted/30 border border-slate-100 rounded-xl text-[10px] text-muted-foreground leading-normal italic line-clamp-2">
                           "{lead.personalizedMessage}"
                         </div>
-
-                        <div className="flex justify-between items-center mt-3">
-                          <span className="text-[9px] bg-amber-950 text-amber-400 px-1.5 py-0.5 rounded">Score: {lead.score}</span>
-                          <span className="text-[10px] text-amber-400 font-semibold">Respondeu</span>
+                        <div className="flex justify-between items-center mt-4">
+                          <ScoreBadge score={lead.score} />
+                          <span className="text-[10px] text-amber-600 font-bold uppercase">Respondeu</span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
+                </div>
 
-                  {/* Column 4: Reunião Marcada */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-[#12121E] px-3 py-2 rounded-lg border-l-2 border-emerald-500">
-                      <span className="text-xs font-semibold text-gray-300">Marcadas (Meeting)</span>
-                      <span className="text-[10px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded font-bold">
-                        {leads.filter(l => l.status === 'booked').length}
-                      </span>
-                    </div>
+                {/* Column 4: Reunião Marcada */}
+                <div className="space-y-4 bg-muted/30/70 p-4.5 rounded-2xl border border-border/50 min-h-[600px] flex flex-col shadow-sm">
+                  <div className="flex justify-between items-center bg-card px-4 py-3 rounded-xl border border-border shadow-sm border-l-4 border-emerald-500">
+                    <span className="text-xs font-bold text-slate-700">Reunião (Meeting)</span>
+                    <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-100 font-black">
+                      {leads.filter(l => l.status === 'booked').length}
+                    </span>
+                  </div>
+                  <div className="space-y-3 flex-1 overflow-y-auto max-h-[680px] pr-1">
                     {leads.filter(l => l.status === 'booked').map(lead => (
-                      <div key={lead.id} className="p-3 bg-[#0B0B12] border border-[#1C1C28] rounded-lg relative overflow-hidden">
+                      <button key={lead.id} onClick={() => setSelectedLead(lead)}
+                        className="w-full text-left p-4.5 bg-card border border-border hover:border-emerald-400 rounded-xl shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 block group relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-8 h-8 bg-emerald-500/10 rounded-full blur-sm" />
-                        <span className="block text-xs font-bold text-white">{lead.companyName}</span>
-                        <span className="block text-[10px] text-gray-400 mt-1">{lead.contactName} ({lead.contactRole})</span>
-                        
-                        <div className="mt-2 p-2 bg-[#12121F] border border-[#1F1F35] rounded text-[10px] text-gray-400 leading-normal italic line-clamp-3">
+                        <span className="block text-xs font-extrabold text-foreground group-hover:text-emerald-600 transition-colors">{lead.companyName}</span>
+                        <span className="block text-[10px] text-slate-400 font-semibold mt-1.5">{lead.contactName} ({lead.contactRole})</span>
+                        <div className="mt-2.5 p-3.5 bg-muted/30 border border-slate-100 rounded-xl text-[10px] text-muted-foreground leading-normal italic line-clamp-2">
                           "{lead.personalizedMessage}"
                         </div>
-
-                        <div className="flex justify-between items-center mt-3">
-                          <span className="text-[9px] bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded">Score: {lead.score}</span>
-                          <span className="text-[10px] text-emerald-400 font-bold flex items-center">
-                            <CheckCircle className="w-3.5 h-3.5 mr-1" /> Marcada
+                        <div className="flex justify-between items-center mt-4">
+                          <ScoreBadge score={lead.score} />
+                          <span className="text-[10px] text-emerald-600 font-bold flex items-center">
+                            <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-500" /> Marcada
                           </span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
-
                 </div>
+
               </div>
             </div>
           )}
 
           {/* PRODUCTS TAB */}
           {activeTab === 'products' && (
-            <div className="space-y-8 animate-fadeIn">
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
               
-              <div className="p-5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                  <Package className="w-5 h-5 text-indigo-400" />
+              <GlassCard className="p-6 bg-indigo-50/40 border border-indigo-100/65 flex items-start gap-5 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-200/50 flex items-center justify-center shrink-0 shadow-sm">
+                  <Package className="w-5.5 h-5.5 text-indigo-600" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Treinamento do Produto</h4>
-                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  <h4 className="text-sm font-bold text-foreground">Treinamento do Produto</h4>
+                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-semibold">
                     Cadastre os produtos e serviços que sua startup comercializa. O Agente Redator irá minerar esses recursos, listando as principais funcionalidades e a dor que cada uma resolve para escrever mensagens altamente personalizadas para o Lead.
                   </p>
                 </div>
-              </div>
+              </GlassCard>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 {/* Form to Add Product */}
-                <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6">
-                  <h3 className="text-sm font-semibold text-white mb-4">Adicionar Novo Produto</h3>
+                <GlassCard className="p-7 ">
+                  <h3 className="text-sm font-extrabold text-foreground mb-6 uppercase tracking-wide">Adicionar Novo Produto</h3>
                   
-                  <form onSubmit={handleAddProduct} className="space-y-4">
+                  <form onSubmit={handleAddProduct} className="space-y-5">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Nome do Produto</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nome do Produto</label>
                       <input 
                         type="text" 
                         value={newProduct.name}
                         onChange={e => setNewProduct({...newProduct, name: e.target.value})}
                         placeholder="Ex: Scoutly Enterprise API"
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Descrição Comercial</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Descrição Comercial</label>
                       <textarea 
                         rows={3}
                         value={newProduct.description}
                         onChange={e => setNewProduct({...newProduct, description: e.target.value})}
                         placeholder="Explique o que o produto faz..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Funcionalidades Principais</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Funcionalidades Principais</label>
                       <textarea 
                         rows={2}
                         value={newProduct.features}
                         onChange={e => setNewProduct({...newProduct, features: e.target.value})}
                         placeholder="Ex: Dashboard de métricas, integração HubSpot, etc."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Perfil do Comprador Ideal (Persona)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Perfil do Comprador Ideal (Persona)</label>
                       <input 
                         type="text" 
                         value={newProduct.targetBuyer}
                         onChange={e => setNewProduct({...newProduct, targetBuyer: e.target.value})}
                         placeholder="Ex: VPs de Vendas, CMOs, CEOs"
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Planos & Preços (Explicativo para IA)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Planos & Preços (Explicativo para IA)</label>
                       <textarea 
                         rows={2}
                         value={newProduct.pricingPlans}
                         onChange={e => setNewProduct({...newProduct, pricingPlans: e.target.value})}
                         placeholder="Ex: Starter: R$ 99/mês (5 funis), Pro: R$ 249/mês (ilimitado)"
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
                     <button 
                       type="submit" 
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition duration-200 mt-2 shadow-lg shadow-indigo-500/20"
+                      className="w-full py-3.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-all duration-200 shadow-md shadow-slate-900/10"
                     >
                       Salvar Produto
                     </button>
                   </form>
-                </div>
+                </GlassCard>
 
                 {/* Products List */}
-                <div className="lg:col-span-2 space-y-4">
+                <div className="lg:col-span-2 space-y-5">
                   {products.map(prod => (
-                    <div key={prod.id} className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl" />
+                    <GlassCard key={prod.id} className="p-7 ">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold text-white text-base">{prod.name}</h4>
-                          <span className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider block mt-0.5">
+                          <h4 className="font-extrabold text-foreground text-base">{prod.name}</h4>
+                          <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block mt-1.5">
                             Persona Alvo: {prod.targetBuyer}
                           </span>
                         </div>
                       </div>
 
-                      <p className="text-sm text-gray-300 mt-4 leading-relaxed">
+                      <p className="text-sm text-muted-foreground mt-4 leading-relaxed font-semibold">
                         {prod.description}
                       </p>
 
                       {prod.pricingPlans && (
-                        <div className="mt-3 p-3 rounded-lg bg-[#12121E] border border-[#1F1F30] text-xs">
-                          <span className="font-semibold text-indigo-400 block mb-1">💰 Planos & Valores Cadastrados:</span>
-                          <span className="text-gray-400 block leading-relaxed">{prod.pricingPlans}</span>
+                        <div className="mt-4 p-4 rounded-xl bg-background border border-border/80 text-xs">
+                          <span className="font-bold text-foreground block mb-1.5">💰 Planos & Valores Cadastrados:</span>
+                          <span className="text-muted-foreground block leading-relaxed font-semibold">{prod.pricingPlans}</span>
                         </div>
                       )}
 
-                      <div className="mt-4 pt-4 border-t border-[#1C1C28] flex flex-wrap gap-2">
+                      <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap gap-2">
                         {prod.features.split(',').map((f, i) => (
-                          <span key={i} className="text-xs bg-[#12121E] border border-[#1F1F30] text-gray-300 px-3 py-1 rounded-full">
+                          <span key={i} className="text-xs bg-slate-100 border border-border text-slate-650 px-3 py-1 rounded-full font-bold">
                             {f.trim()}
                           </span>
                         ))}
                       </div>
-                    </div>
+                    </GlassCard>
                   ))}
                 </div>
 
@@ -1405,264 +1502,264 @@ export default function App() {
 
           {/* PROFILE / SETTINGS TAB */}
           {activeTab === 'profile' && (
-            <div className="space-y-8 animate-fadeIn">
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
               
-              <div className="p-5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                  <Building2 className="w-5 h-5 text-indigo-400" />
+              <GlassCard className="p-6 bg-indigo-50/40 border border-indigo-100/65 flex items-start gap-5 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-200/50 flex items-center justify-center shrink-0 shadow-sm">
+                  <Building2 className="w-5.5 h-5.5 text-indigo-600" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Instruções de Marca e Filosofia</h4>
-                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  <h4 className="text-sm font-bold text-foreground">Instruções de Marca e Filosofia</h4>
+                  <p className="text-xs text-slate-650 mt-2 leading-relaxed font-semibold">
                     Configure os dados fundamentais sobre a sua empresa/startup. Essas informações funcionam como as "diretrizes de contexto" (Knowledge Base) para as ferramentas de IA, moldando como elas definem objeções e se portam em conversas.
                   </p>
                 </div>
-              </div>
+              </GlassCard>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
                 {/* Profile Form */}
-                <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-8">
-                  <h3 className="text-sm font-semibold text-white mb-6">Cadastro da Startup (Treinamento do Agente)</h3>
+                <GlassCard className="p-8 ">
+                  <h3 className="text-sm font-extrabold text-foreground mb-6 uppercase tracking-wide">Cadastro da Startup (Treinamento do Agente)</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Nome da Startup / Empresa</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nome da Startup / Empresa</label>
                       <input 
                         type="text" 
                         value={companyProfile.name}
                         onChange={e => setCompanyProfile({...companyProfile, name: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Domínio do Negócio (Opcional)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Domínio do Negócio (Opcional)</label>
                       <input 
                         type="text" 
                         value={companyProfile.domain}
                         onChange={e => setCompanyProfile({...companyProfile, domain: e.target.value})}
                         placeholder="https://vysify.com"
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Mercado / Segmento</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Mercado / Segmento</label>
                       <input 
                         type="text" 
                         value={companyProfile.industry}
                         onChange={e => setCompanyProfile({...companyProfile, industry: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">O que a Empresa faz? (Explicação Geral)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">O que a Empresa faz? (Explicação Geral)</label>
                       <textarea 
                         rows={3}
                         value={companyProfile.description}
                         onChange={e => setCompanyProfile({...companyProfile, description: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Proposta de Valor Principal</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Proposta de Valor Principal</label>
                       <textarea 
                         rows={2}
                         value={companyProfile.valueProposition}
                         onChange={e => setCompanyProfile({...companyProfile, valueProposition: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Público-Alvo Ideal</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Público-Alvo Ideal</label>
                       <input 
                         type="text" 
                         value={companyProfile.targetAudience}
                         onChange={e => setCompanyProfile({...companyProfile, targetAudience: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Tom de Voz da IA</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Tom de Voz da IA</label>
                       <input 
                         type="text" 
                         value={companyProfile.brandVoice}
                         onChange={e => setCompanyProfile({...companyProfile, brandVoice: e.target.value})}
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
                     </div>
                   </div>
 
-                  <div className="mt-8 pt-6 border-t border-[#1C1C28] flex justify-end">
+                  <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
                     <button 
                       onClick={handleSaveProfile}
-                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition duration-200 shadow-lg shadow-indigo-500/20"
+                      className="px-6 py-3.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-md shadow-slate-900/10"
                     >
                       Salvar Configurações & Atualizar Agentes
                     </button>
                   </div>
-                </div>
+                </GlassCard>
 
                 {/* API Keys Form */}
-                <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-8">
-                  <h3 className="text-sm font-semibold text-white mb-6">Credenciais & Chaves de API (Salvas localmente)</h3>
-                  <p className="text-xs text-gray-400 mb-6 leading-relaxed">
+                <GlassCard className="p-8 ">
+                  <h3 className="text-sm font-extrabold text-foreground mb-4 uppercase tracking-wide">Credenciais & Chaves de API (Salvas localmente)</h3>
+                  <p className="text-xs text-muted-foreground mb-6 leading-relaxed font-semibold">
                     Insira as chaves dos modelos de linguagem que deseja utilizar. Elas são armazenadas apenas no seu navegador (localStorage) e enviadas nas requisições sem persistir no servidor.
                   </p>
 
                   <form onSubmit={saveApiKeys} className="space-y-6">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">OpenAI API Key</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">OpenAI API Key</label>
                       <input 
                         type="password" 
                         value={apiKeys.openai}
                         onChange={e => setApiKeys({...apiKeys, openai: e.target.value})}
                         placeholder="sk-..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Gemini API Key</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Gemini API Key</label>
                       <input 
                         type="password" 
                         value={apiKeys.gemini}
                         onChange={e => setApiKeys({...apiKeys, gemini: e.target.value})}
                         placeholder="AIzaSy..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Anthropic Claude Key</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Anthropic Claude Key</label>
                       <input 
                         type="password" 
                         value={apiKeys.anthropic}
                         onChange={e => setApiKeys({...apiKeys, anthropic: e.target.value})}
                         placeholder="sk-ant-..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
-                    <div className="pt-4 border-t border-[#1C1C28]/50">
-                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-4">🔗 Integrações e Leads Reais</span>
+                    <div className="pt-4 border-t border-slate-100">
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-4">🔗 Integrações e Leads Reais</span>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Apollo.io API Key (Busca de Leads)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Apollo.io API Key (Busca de Leads)</label>
                       <input 
                         type="password" 
                         value={apiKeys.apollo}
                         onChange={e => setApiKeys({...apiKeys, apollo: e.target.value})}
                         placeholder="apikeys_..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Hunter.io API Key (Validação de E-mails)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Hunter.io API Key (Validação de E-mails)</label>
                       <input 
                         type="password" 
                         value={apiKeys.hunter}
                         onChange={e => setApiKeys({...apiKeys, hunter: e.target.value})}
                         placeholder="Hunter API Key..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Resend API Key (Infraestrutura de Disparo SMTP)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Resend API Key (Infraestrutura de Disparo SMTP)</label>
                       <input 
                         type="password" 
                         value={apiKeys.resend}
                         onChange={e => setApiKeys({...apiKeys, resend: e.target.value})}
                         placeholder="re_..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
-                    <div className="pt-4 border-t border-[#1C1C28]/50">
-                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-4">💬 Mensageria Outbound</span>
+                    <div className="pt-4 border-t border-slate-100">
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-4">💬 Mensageria Outbound</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">WhatsApp Token (Z-API / Evolution)</label>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">WhatsApp Token (Z-API / Evolution)</label>
                         <input 
                           type="password" 
                           value={apiKeys.whatsappToken}
                           onChange={e => setApiKeys({...apiKeys, whatsappToken: e.target.value})}
                           placeholder="Token da API..."
-                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">WhatsApp URL da Instância</label>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">WhatsApp URL da Instância</label>
                         <input 
                           type="text" 
                           value={apiKeys.whatsappInstance}
                           onChange={e => setApiKeys({...apiKeys, whatsappInstance: e.target.value})}
                           placeholder="https://api.evolution.com/v1"
-                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">Telegram Bot Token</label>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Telegram Bot Token</label>
                         <input 
                           type="password" 
                           value={apiKeys.telegramToken}
                           onChange={e => setApiKeys({...apiKeys, telegramToken: e.target.value})}
                           placeholder="Bot Token..."
-                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">Telegram Chat ID / Canal</label>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Telegram Chat ID / Canal</label>
                         <input 
                           type="text" 
                           value={apiKeys.telegramChatId}
                           onChange={e => setApiKeys({...apiKeys, telegramChatId: e.target.value})}
                           placeholder="@seu_chat_id"
-                          className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                         />
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-[#1C1C28]/50">
-                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-4">💼 Automação Profissional (LinkedIn)</span>
+                    <div className="pt-4 border-t border-slate-100">
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-4">🔗 Automação Profissional (LinkedIn)</span>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">LinkedIn Cookie de Conexão (li_at)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">LinkedIn Cookie (li_at)</label>
                       <input 
                         type="password" 
                         value={apiKeys.linkedinCookie}
                         onChange={e => setApiKeys({...apiKeys, linkedinCookie: e.target.value})}
                         placeholder="AQEDAR..."
-                        className="w-full bg-[#12121E] border border-[#1F1F30] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" 
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
 
-                    <div className="mt-8 pt-6 border-t border-[#1C1C28] flex justify-end">
+                    <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
                       <button 
                         type="submit"
-                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition duration-200 shadow-lg shadow-indigo-500/20"
+                        className="px-6 py-3.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition shadow-md shadow-slate-900/10"
                       >
                         Salvar Chaves de API
                       </button>
                     </div>
                   </form>
-                </div>
+                </GlassCard>
 
               </div>
 
@@ -1671,119 +1768,117 @@ export default function App() {
 
           {/* MEMORY TAB */}
           {activeTab === 'memory' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="p-5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                  <BrainCircuit className="w-5 h-5 text-indigo-400" />
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
+              <GlassCard className="p-6 bg-indigo-50/40 border border-indigo-100/65 flex items-start gap-5 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-200/50 flex items-center justify-center shrink-0 shadow-sm">
+                  <BrainCircuit className="w-5.5 h-5.5 text-indigo-600" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white">Memória de Conversão & Vetores</h4>
-                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  <h4 className="text-sm font-bold text-foreground">Memória de Conversão & Vetores</h4>
+                  <p className="text-xs text-slate-650 mt-2 leading-relaxed font-semibold">
                     O Scoutly analisa as conversas passadas que geraram reuniões marcadas para retroalimentar seu modelo RAG de prospecção.
                   </p>
                 </div>
-              </div>
+              </GlassCard>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6">
-                  <h4 className="text-sm font-semibold text-white mb-4 flex items-center space-x-2">
-                    <ThumbsUp className="w-4 h-4 text-emerald-400" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <GlassCard className="p-7 ">
+                  <h4 className="text-sm font-extrabold text-foreground mb-5 flex items-center space-x-2.5 uppercase tracking-wide">
+                    <ThumbsUp className="w-4.5 h-4.5 text-emerald-600" />
                     <span>Abordagens de Alto Impacto (Retidas)</span>
                   </h4>
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-lg bg-[#12121E] border border-[#1F1F30]">
-                      <span className="text-[10px] text-emerald-400 font-bold uppercase">Taxa de Conversão: 89%</span>
-                      <p className="text-xs text-gray-300 mt-2 italic leading-relaxed">
+                  <div className="space-y-3.5">
+                    <div className="p-5 rounded-2xl bg-background border border-border/80">
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase">Taxa de Conversão: 89%</span>
+                      <p className="text-xs text-muted-foreground mt-2.5 italic leading-relaxed font-semibold">
                         "...vi seu post recente sobre escalabilidade na Alpha Marketing. Criamos abordagens sob medida para agências que desejam..."
                       </p>
-                      <span className="block text-[10px] text-gray-500 mt-2">Usado em: Campanhas B2B Brasil</span>
+                      <span className="block text-[10px] text-slate-400 mt-2.5 font-bold">Usado em: Campanhas B2B Brasil</span>
                     </div>
                   </div>
-                </div>
+                </GlassCard>
 
-                <div className="bg-[#0E0E18] border border-[#1C1C28] rounded-xl p-6">
-                  <h4 className="text-sm font-semibold text-white mb-4 flex items-center space-x-2">
-                    <History className="w-4 h-4 text-indigo-400" />
+                <GlassCard className="p-7 ">
+                  <h4 className="text-sm font-extrabold text-foreground mb-5 flex items-center space-x-2.5 uppercase tracking-wide">
+                    <History className="w-4.5 h-4.5 text-indigo-600" />
                     <span>Insights de Aprendizado Autônomo</span>
                   </h4>
-                  <div className="space-y-3 text-xs text-gray-300">
-                    <div className="p-3 bg-[#12121E] border border-[#1C1C28] rounded-lg">
+                  <div className="space-y-3.5 text-xs text-muted-foreground font-semibold leading-relaxed">
+                    <div className="p-4 bg-background border border-border rounded-2xl">
                       🟢 <strong>Preferência de CTA:</strong> Perguntas sobre o gargalo comercial convertem 2x mais do que enviar links diretos de agenda na primeira mensagem.
                     </div>
-                    <div className="p-3 bg-[#12121E] border border-[#1C1C28] rounded-lg">
+                    <div className="p-4 bg-background border border-border rounded-2xl">
                       🟢 <strong>Melhor Horário:</strong> Abordagens enviadas entre 10h e 11h30 (horário local do lead) recebem respostas 35% mais rápido.
                     </div>
                   </div>
-                </div>
+                </GlassCard>
               </div>
             </div>
           )}
 
           {/* OUTREACH LOGS TAB */}
           {activeTab === 'logs' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight">Logs de Disparos Outbound</h2>
-                  <p className="text-xs text-gray-400 mt-1">Monitore e acompanhe cada mensagem enviada, status de entrega e erros de API em tempo real.</p>
-                </div>
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
+              <div>
+                <h2 className="text-xl font-extrabold text-foreground tracking-tight uppercase">Logs de Disparos Outbound</h2>
+                <p className="text-xs text-muted-foreground mt-1.5 font-semibold">Monitore e acompanhe cada mensagem enviada, status de entrega e erros de API em tempo real.</p>
               </div>
 
-              <div className="bg-[#0D0D15] border border-[#1C1C28] rounded-xl overflow-hidden">
+              <GlassCard className=" overflow-hidden" glow={false}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-[#1C1C28] bg-[#0E0E18] text-gray-400 text-[10px] font-bold uppercase tracking-wider">
-                        <th className="px-6 py-4">Lead</th>
-                        <th className="px-6 py-4">Destinatário</th>
-                        <th className="px-6 py-4">Canal</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4">Mensagem Enviada</th>
-                        <th className="px-6 py-4">Data/Hora</th>
+                      <tr className="border-b border-border bg-muted/30 text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
+                        <th className="px-6 py-4.5">Lead</th>
+                        <th className="px-6 py-4.5">Destinatário</th>
+                        <th className="px-6 py-4.5">Canal</th>
+                        <th className="px-6 py-4.5">Status</th>
+                        <th className="px-6 py-4.5">Mensagem Enviada</th>
+                        <th className="px-6 py-4.5">Data/Hora</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#1C1C28] text-xs text-gray-300">
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-650 font-semibold">
                       {outreachLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
+                          <td colSpan={6} className="px-6 py-10 text-center text-slate-400 italic">
                             Nenhuma atividade de disparo registrada até o momento.
                           </td>
                         </tr>
                       ) : (
                         outreachLogs.map(log => (
-                          <tr key={log.id} className="hover:bg-[#11111B]/40 transition duration-150">
-                            <td className="px-6 py-4 font-semibold text-white">
+                          <tr key={log.id} className="hover:bg-muted/30/50 transition duration-150">
+                            <td className="px-6 py-4.5 font-bold text-foreground">
                               {log.lead?.companyName || 'Empresa Desconhecida'}
-                              <span className="block text-[10px] text-gray-500 font-normal">{log.lead?.contactName || 'Sem Contato'}</span>
+                              <span className="block text-[10px] text-slate-400 font-semibold">{log.lead?.contactName || 'Sem Contato'}</span>
                             </td>
-                            <td className="px-6 py-4 font-mono text-gray-400">{log.recipient}</td>
-                            <td className="px-6 py-4">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                log.channel === 'email' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                                log.channel === 'whatsapp' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                                'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                            <td className="px-6 py-4.5 font-mono text-muted-foreground">{log.recipient}</td>
+                            <td className="px-6 py-4.5">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                log.channel === 'email' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                log.channel === 'whatsapp' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                'bg-sky-50 text-sky-700 border border-sky-100'
                               }`}>
                                 {log.channel}
                               </span>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-6 py-4.5">
                               {log.status === 'sent' ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
                                   Sucesso
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20" title={log.error_message}>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-100" title={log.error_message}>
                                   Falha
                                 </span>
                               )}
                               {log.error_message && (
-                                <span className="block text-[9px] text-red-400/80 mt-1 max-w-[150px] truncate">{log.error_message}</span>
+                                <span className="block text-[9px] text-red-600 mt-1.5 max-w-[150px] truncate">{log.error_message}</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 max-w-xs truncate italic text-gray-400" title={log.message_content}>
+                            <td className="px-6 py-4.5 max-w-xs truncate italic text-muted-foreground" title={log.message_content}>
                               {log.message_content}
                             </td>
-                            <td className="px-6 py-4 text-gray-500">
+                            <td className="px-6 py-4.5 text-slate-400 font-semibold">
                               {new Date(log.sent_at).toLocaleString()}
                             </td>
                           </tr>
@@ -1792,7 +1887,417 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </GlassCard>
+            </div>
+          )}
+
+          {/* IMPORT LEADS TAB */}
+          {activeTab === 'import' && (
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
+              <GlassCard className="p-7 ">
+                <div className="flex items-start gap-5 mb-8">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 border border-indigo-200/50 flex items-center justify-center shrink-0 shadow-sm">
+                    <Upload className="w-5.5 h-5.5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-foreground uppercase tracking-wide">Importação Rápida de Leads</h3>
+                    <p className="text-xs text-muted-foreground mt-2 font-semibold">Coloque leads individuais ou simule para testar as regras do scoring.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Form */}
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nome da Empresa</label>
+                      <input 
+                        type="text" 
+                        id="import-companyName"
+                        placeholder="Ex: ACME Corporation"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Site da Empresa</label>
+                      <input 
+                        type="text" 
+                        id="import-website"
+                        placeholder="Ex: https://acme.com"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nome do Decisor</label>
+                        <input 
+                          type="text" 
+                          id="import-contactName"
+                          placeholder="Ex: André Silva"
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Cargo</label>
+                        <input 
+                          type="text" 
+                          id="import-contactRole"
+                          placeholder="Ex: Diretor de Vendas"
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                        />
+                      </div>
+                    </div>
+                    
+                    <button 
+                      type="button"
+                      onClick={async () => {
+                        const comp = (document.getElementById('import-companyName') as HTMLInputElement)?.value;
+                        const web = (document.getElementById('import-website') as HTMLInputElement)?.value;
+                        const name = (document.getElementById('import-contactName') as HTMLInputElement)?.value;
+                        const role = (document.getElementById('import-contactRole') as HTMLInputElement)?.value;
+
+                        if (!comp || !web) {
+                          alert('Por favor, informe pelo menos o Nome da Empresa e o Site.');
+                          return;
+                        }
+
+                        const newL: Lead = {
+                          id: 'l' + Date.now(),
+                          companyName: comp,
+                          contactName: name || 'Decisor Indefinido',
+                          contactRole: role || 'Gestor',
+                          email: `contato@${web.replace('https://','').replace('http://','').replace('www.','')}`,
+                          phone: '+55 11 99999-9999',
+                          website: web,
+                          score: 0,
+                          scoreReason: 'Aguardando avaliação da IA...',
+                          personalizedMessage: 'Gerando mensagem...',
+                          status: 'found',
+                          importedAt: new Date().toISOString()
+                        };
+
+                        setLeads(prev => [newL, ...prev]);
+                        
+                        try {
+                          // Inicia animação
+                          setIsAgentWorking(true);
+                          setAgentStatusText('Iniciando o Research Agent (Mineração)...');
+                          
+                          // Salva o lead no Banco de Dados SQLite
+                          await fetch(API_BASE + '/leads', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newL)
+                          });
+
+                          setAgentStatusText('Company Intelligence Agent lendo o site...');
+
+                          // Chama a rota de Score da IA
+                          const res = await fetch(API_BASE + '/score', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newL)
+                          });
+                          const aiResult = await res.json();
+                          
+                          setAgentStatusText('Pain Finder e Copywriter finalizando dossiê...');
+                          
+                          // Atualiza o estado com a resposta da IA
+                          setLeads(prev => prev.map(l => l.id === newL.id ? {
+                            ...l,
+                            score: aiResult.score,
+                            scoreReason: aiResult.reason,
+                            personalizedMessage: aiResult.message,
+                            status: 'enriched'
+                          } : l));
+                          
+                          setIsAgentWorking(false);
+                        } catch(e) {
+                          console.error(e);
+                          setIsAgentWorking(false);
+                          alert('Erro ao processar o lead pela IA.');
+                        }
+                        setActiveTab('crm');
+
+                        // limpa
+                        if (document.getElementById('import-companyName')) (document.getElementById('import-companyName') as HTMLInputElement).value = '';
+                        if (document.getElementById('import-website')) (document.getElementById('import-website') as HTMLInputElement).value = '';
+                        if (document.getElementById('import-contactName')) (document.getElementById('import-contactName') as HTMLInputElement).value = '';
+                        if (document.getElementById('import-contactRole')) (document.getElementById('import-contactRole') as HTMLInputElement).value = '';
+                      }}
+                      className="w-full py-3.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition shadow-md shadow-slate-900/10"
+                    >
+                      Processar & Adicionar ao CRM
+                    </button>
+                  </div>
+
+                  <div className="bg-background border border-border rounded-2xl p-7 flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-xs font-black text-indigo-600 uppercase tracking-wider mb-2.5">Simulação em Lote via Planilha</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed font-semibold">
+                        Para operações profissionais de escala, você pode importar suas listas mineradas via Excel ou Apollo em lote.
+                      </p>
+                      
+                      <div className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center bg-card mt-6 shadow-sm">
+                        <Upload className="w-9 h-9 text-slate-400 mx-auto mb-3" />
+                        <span className="block text-xs font-bold text-slate-700">Arraste seu arquivo .CSV ou .XLSX</span>
+                        <span className="block text-[10px] text-slate-400 mt-1.5 font-semibold">Limite máximo de 5.000 linhas por lote</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        alert('Esta ação simula o processamento de 25 novos leads qualificados via Apollo.io!');
+                        const simulated: Lead[] = [
+                          {
+                            id: 'sim-1',
+                            companyName: 'TechSolutions Global',
+                            contactName: 'Carlos Eduardo',
+                            contactRole: 'CTO',
+                            email: 'carlos@techsolutions.com',
+                            phone: '+55 11 98888-7777',
+                            website: 'https://techsolutions.com',
+                            score: 94,
+                            scoreReason: 'Empresa em alto crescimento no segmento de tecnologia e desenvolvimento de software, com decisor de compras direto.',
+                            personalizedMessage: 'Olá Carlos, tudo bem? Vi que a TechSolutions tem expandido o time técnico. Nossa infraestrutura de vendas corporativas ajuda times a escalarem a entrega de software sem gargalos.',
+                            status: 'found',
+                            importedAt: new Date().toISOString()
+                          },
+                          {
+                            id: 'sim-2',
+                            companyName: 'Fintech Spark',
+                            contactName: 'Luciana Mello',
+                            contactRole: 'Head de Vendas',
+                            email: 'luciana@fintechspark.com',
+                            phone: '+55 11 97777-6666',
+                            website: 'https://fintechspark.io',
+                            score: 87,
+                            scoreReason: 'Fintech buscando automação de processos comerciais. Persona de vendas exata do Vysify.',
+                            personalizedMessage: 'Olá Luciana, vi seu foco no crescimento da Spark Fintech. Nós desenvolvemos soluções exclusivas que cortam o tempo operacional das mesas de SDR em até 40%.',
+                            status: 'found',
+                            importedAt: new Date().toISOString()
+                          }
+                        ];
+                        setLeads(prev => [...simulated, ...prev]);
+                        setActiveTab('crm');
+                      }}
+                      className="mt-6 w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-350 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4 text-muted-foreground" />
+                      Simular Importação Apollo.io (Leads Mock)
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+          )}
+
+          {/* Lead Detail / AI Intelligence Modal */}
+          {selectedLead && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <GlassCard className="shadow-xl rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
+                <button 
+                  onClick={() => setSelectedLead(null)}
+                  className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-muted-foreground transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-black text-foreground tracking-tight">{selectedLead.companyName}</h3>
+                  <ScoreBadge score={selectedLead.score} />
+                </div>
+                <span className="text-xs text-slate-400 font-bold block mt-1">{selectedLead.website}</span>
+
+                <div className="mt-6 space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Decisor de Compra</span>
+                      <span className="text-xs font-bold text-slate-700 block mt-1">{selectedLead.contactName}</span>
+                      <span className="text-[10px] text-muted-foreground font-semibold">{selectedLead.contactRole || 'Gestor'}</span>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Contato</span>
+                      <span className="text-xs font-bold text-slate-700 block mt-1">{selectedLead.email}</span>
+                      <span className="text-[10px] text-muted-foreground font-semibold">{selectedLead.phone || 'Sem telefone'}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">Parecer e Qualificação da IA</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed bg-indigo-50/50 border border-indigo-100 p-3.5 rounded-xl font-semibold">
+                      {selectedLead.scoreReason}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">Mensagem Outbound Personalizada</h4>
+                    <div className="text-xs text-slate-700 leading-normal bg-background border border-border p-3.5 rounded-xl italic font-semibold whitespace-pre-line">
+                      "{selectedLead.personalizedMessage}"
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between gap-3">
+                  <button 
+                    onClick={() => {
+                      setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, status: 'lost' } : l));
+                      setSelectedLead(null);
+                    }}
+                    className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                  >
+                    Marcar como Perdido
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={async () => {
+                        try {
+                          await fetch(API_BASE + '/send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              lead_id: selectedLead.id,
+                              channel: 'email',
+                              recipient: selectedLead.email,
+                              subject: 'Explorando sinergias com a ' + selectedLead.companyName,
+                              message_content: selectedLead.personalizedMessage,
+                              campaign_id: 'c1' // placeholder
+                            })
+                          });
+                          alert('E-mail disparado com sucesso via Resend!');
+                          setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, status: 'sent' } : l));
+                          setSelectedLead(null);
+                        } catch(e) { alert('Erro no disparo'); }
+                      }}
+                      className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Disparar E-mail
+                    </button>
+                    
+                    <button 
+                      onClick={async () => {
+                        try {
+                          await fetch(API_BASE + '/send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              lead_id: selectedLead.id,
+                              channel: 'whatsapp',
+                              recipient: selectedLead.phone,
+                              message_content: selectedLead.personalizedMessage
+                            })
+                          });
+                          alert('WhatsApp enviado com sucesso!');
+                          setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, status: 'sent' } : l));
+                          setSelectedLead(null);
+                        } catch(e) { alert('Erro no disparo'); }
+                      }}
+                      className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                    >
+                      WhatsApp
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        setScheduleLead(selectedLead);
+                        setSelectedLead(null);
+                      }}
+                      className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      Agendar
+                    </button>
+                    
+                    <button 
+                      onClick={() => setSelectedLead(null)}
+                      className="px-5 py-3 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+          )}
+
+          {/* Schedule Meeting Modal */}
+          {scheduleLead && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <GlassCard className="shadow-xl rounded-2xl max-w-md w-full p-6 relative">
+                <button 
+                  onClick={() => setScheduleLead(null)}
+                  className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-muted-foreground transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2">Agendar Reunião</h3>
+                <span className="text-xs text-muted-foreground font-semibold">Decisor: {scheduleLead.contactName} ({scheduleLead.companyName})</span>
+
+                <form onSubmit={handleScheduleMeeting} className="mt-5 space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1.5">Data</label>
+                    <input 
+                      type="date" 
+                      required
+                      value={scheduleData.date}
+                      onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1.5">Horário</label>
+                    <input 
+                      type="time" 
+                      required
+                      value={scheduleData.time}
+                      onChange={e => setScheduleData({ ...scheduleData, time: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1.5">Plataforma</label>
+                    <select 
+                      value={scheduleData.platform}
+                      onChange={e => setScheduleData({ ...scheduleData, platform: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none"
+                    >
+                      <option value="Google Meet">Google Meet</option>
+                      <option value="Zoom">Zoom</option>
+                      <option value="Microsoft Teams">Microsoft Teams</option>
+                      <option value="Ligação Telefônica">Ligação Telefônica</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1.5">Notas / Link de Reunião</label>
+                    <textarea 
+                      rows={2}
+                      value={scheduleData.notes}
+                      onChange={e => setScheduleData({ ...scheduleData, notes: e.target.value })}
+                      placeholder="Adicione notas adicionais..."
+                      className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                    />
+                  </div>
+
+                  <div className="pt-4 flex justify-end gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => setScheduleLead(null)}
+                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      type="submit"
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition"
+                    >
+                      Confirmar Reunião
+                    </button>
+                  </div>
+                </form>
+              </GlassCard>
             </div>
           )}
 
