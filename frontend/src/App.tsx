@@ -859,7 +859,7 @@ export default function App() {
                   <div>
                     <h4 className="text-sm font-bold text-foreground tracking-wide">Contexto de Treinamento Ativo</h4>
                     <p className="text-xs text-muted-foreground mt-2 max-w-4xl leading-relaxed">
-                      O Scoutly está configurado para prospectar no contexto de <strong className="text-foreground font-bold">{companyProfile.name}</strong> ({companyProfile.industry}), focando no produto <strong className="text-foreground font-bold">{products[0]?.name || 'Nenhum cadastrado'}</strong>. O motor de scoring <span className="text-primary font-bold">HybridScorer</span> combina regras personalizáveis com LLM para qualificar leads em tempo real.
+                      O Scoutly está configurado para prospectar no contexto de <strong className="text-foreground font-bold">{companyProfile.name || 'sua empresa'}</strong> {companyProfile.industry ? `(${companyProfile.industry})` : ''}, focando no produto <strong className="text-foreground font-bold">{products[0]?.name || 'Nenhum cadastrado'}</strong>. O motor de scoring <span className="text-primary font-bold">HybridScorer</span> combina regras personalizáveis com LLM para qualificar leads em tempo real.
                     </p>
                   </div>
                 </div>
@@ -868,9 +868,9 @@ export default function App() {
               {/* Statistics Grid */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                  { label: 'Empresas Encontradas', value: leads.length * 15, suffix: '', trend: '+12%', trendUp: true, icon: Target, color: '#6366f1' },
-                  { label: 'Mensagens Enviadas', value: leads.filter(l => l.status !== 'found' && l.status !== 'enriched').length * 8, suffix: '', trend: 'Cadência IA', trendUp: true, icon: Send, color: '#4f46e5' },
-                  { label: 'Taxa de Abertura', value: 74.2, suffix: '%', trend: '+4.1%', trendUp: true, icon: Eye, color: '#f59e0b' },
+                  { label: 'Empresas Encontradas', value: leads.length, suffix: '', trend: 'Tempo Real', trendUp: true, icon: Target, color: '#6366f1' },
+                  { label: 'Mensagens Enviadas', value: leads.filter(l => ['sent', 'opened', 'responded', 'booked'].includes(l.status)).length, suffix: '', trend: 'Cadência IA', trendUp: true, icon: Send, color: '#4f46e5' },
+                  { label: 'Taxa de Resposta', value: leads.length > 0 ? Math.round((leads.filter(l => ['responded', 'booked'].includes(l.status)).length / leads.length) * 100) : 0, suffix: '%', trend: 'Engajamento', trendUp: true, icon: Eye, color: '#f59e0b' },
                   { label: 'Reuniões Agendadas', value: leads.filter(l => l.status === 'booked').length, suffix: '', trend: 'Conversão Ideal', trendUp: true, icon: Calendar, color: '#10b981' }
                 ].map(({ label, value, suffix, trend, trendUp, icon: Icon, color }) => (
                   <GlassCard key={label} className="p-6 bg-card border border-border shadow-sm flex flex-col justify-between h-40">
@@ -908,7 +908,7 @@ export default function App() {
                   </div>
 
                   <div className="space-y-4">
-                    {leads.slice(0, 3).map((lead) => (
+                    {leads.length > 0 ? leads.slice().reverse().slice(0, 3).map((lead) => (
                       <button key={lead.id} onClick={() => { setSelectedLead(lead); setActiveTab('crm'); }}
                         className="w-full p-5 rounded-2xl bg-muted/30 border border-border hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 flex items-center justify-between text-left group shadow-sm">
                         <div className="flex-1 min-w-0 pr-4">
@@ -917,14 +917,18 @@ export default function App() {
                             <ScoreBadge score={lead.score} />
                           </div>
                           <span className="block text-xs text-muted-foreground mt-1 font-semibold">{lead.contactName} ({lead.contactRole})</span>
-                          <p className="text-xs text-muted-foreground italic mt-2.5 line-clamp-1 leading-relaxed">"{lead.scoreReason}"</p>
+                          <p className="text-xs text-muted-foreground italic mt-2.5 line-clamp-1 leading-relaxed">"{lead.scoreReason || 'Nenhuma análise de IA disponível'}"</p>
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
                           <StatusBadge status={lead.status} />
                           <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                       </button>
-                    ))}
+                    )) : (
+                      <div className="p-8 text-center text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                        <p className="text-xs font-semibold">Nenhuma atividade de IA registrada. Inicie uma prospecção para visualizar os leads aqui.</p>
+                      </div>
+                    )}
                   </div>
 
                   <button 
@@ -944,36 +948,10 @@ export default function App() {
                   </div>
                   
                   <div className="space-y-4">
-                    {[
-                      { label: 'Variante A', sublabel: 'Pitch de Valor', desc: 'CTA de valor de negócio direto sugerindo ganhos de ROI no Vysify CRM.', conv: 14.5, shots: 62, meetings: 9, winner: false },
-                      { label: 'Variante B', sublabel: 'Foco em Dor', desc: 'Abordagem consultiva focando no maior gargalo de funil que a empresa tem.', conv: 22.8, shots: 57, meetings: 13, winner: true }
-                    ].map(v => (
-                      <div key={v.label} className={`p-5 rounded-2xl border transition-all duration-300 ${v.winner ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-muted/30 border-border'}`}>
-                        <div className="flex justify-between items-start mb-1.5">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-foreground">{v.label} ({v.sublabel})</span>
-                              {v.winner && <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wide">Vencedor</span>}
-                            </div>
-                            <span className="text-[10px] text-muted-foreground mt-1 block leading-relaxed">{v.desc}</span>
-                          </div>
-                          <span className={`text-base font-black ${v.winner ? 'text-emerald-500' : 'text-foreground'}`}>{v.conv}%</span>
-                        </div>
-                        <div className="mt-3.5">
-                          <ProgressBar value={v.conv * 4} color={v.winner ? '#10b981' : '#6366f1'} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 mt-4 pt-3.5 border-t border-border/50 text-left">
-                          <div>
-                            <span className="block text-[9px] text-muted-foreground uppercase font-bold">Disparos</span>
-                            <span className="text-xs font-bold text-foreground">{v.shots} leads</span>
-                          </div>
-                          <div>
-                            <span className="block text-[9px] text-muted-foreground uppercase font-bold">Respostas</span>
-                            <span className="text-xs font-bold text-emerald-500">{v.meetings} reuniões</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                    <div className="p-8 text-center text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                      <p className="text-xs font-semibold">O módulo de Testes A/B (IA Auto-Otimizadora) está em fase beta.</p>
+                      <p className="text-[10px] mt-2">Em breve o Scoutly dividirá os leads automaticamente para testar prompts diferentes e encontrar a melhor conversão.</p>
+                    </div>
                   </div>
 
                   <button 
