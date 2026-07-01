@@ -7,14 +7,19 @@ class CopywriterAgent {
         this.openai = new OpenAI({ apiKey: this.apiKey || 'fake-key-for-now' });
     }
     
-    async writeMessage(leadData, painPoints, strategy, language, productDetails, insightsStr) {
+    async writeMessage(leadData, painPoints, strategy, language, productDetails, insightsStr, customInstructions) {
         if (!this.apiKey) {
             const prodName = productDetails ? productDetails.name : 'Vysify';
             return `[MOCK] Hello ${leadData.contactName || 'Responsável'}, lendo o site da ${leadData.companyName} notei que vocês podem estar lidando com falta de processos. Vamos marcar 10 minutos para falar sobre como o ${prodName} resolve isso?`;
         }
 
+        let customInstructionsBlock = '';
+        if (customInstructions && customInstructions.trim() !== '') {
+            customInstructionsBlock = `\n        -- INSTRUÇÕES ESPECIAIS DA CAMPANHA --\n        O usuário definiu a seguinte ordem/promoção para esta abordagem: "${customInstructions}".\n        Você DEVE mencionar isso na sua cópia de forma natural e irresistível.\n`;
+        }
+
         const prompt = `Você é um Copywriter B2B de Elite (Mago do Outbound).
-        Seu objetivo é escrever o primeiro e-mail de prospecção para este lead.
+        Seu objetivo é escrever a primeira mensagem de prospecção para este lead.
         
         -- DADOS DO LEAD --
         Empresa: ${leadData.companyName}
@@ -33,15 +38,15 @@ class CopywriterAgent {
 
         -- REGRAS DE OURO (APRENDIDAS COM O PASSADO) --
         ${insightsStr ? insightsStr : 'Nenhuma regra acumulada ainda.'}
-
-        Regras do Email:
+        ${customInstructionsBlock}
+        Regras da Mensagem:
         1. Direto e curto (máximo 100 palavras).
         2. Personalizado na primeira frase usando os dados do Lead.
         3. Cutuque a dor mapeada.
         4. Siga estritamente o "Melhor CTA" definido na estratégia e nas "Regras de Ouro".
-        5. IMPORTANTE: ESCREVA O E-MAIL INTEIRAMENTE EM: ${language || 'Português'}.
+        5. IMPORTANTE: ESCREVA A MENSAGEM INTEIRAMENTE EM: ${language || 'Português'}.
         
-        Responda apenas com o corpo do e-mail. Não adicione saudações como "Aqui está o email" antes.`;
+        Responda apenas com o corpo da mensagem. Não adicione saudações como "Aqui está a mensagem" antes.`;
 
         try {
             const response = await this.openai.chat.completions.create({

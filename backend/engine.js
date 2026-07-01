@@ -56,8 +56,16 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     
     const insightsStr = memoryInsights.map(m => `- ${m.content}`).join('\n');
     
-    // O idioma que o agente deve escrever e o produto que ele vai vender!
-    const personalizedMessage = await copywriter.writeMessage(formattedLead, painPoints, strategy, searchCriteria.language || 'Português', productDetails, insightsStr);
+    // O idioma que o agente deve escrever, produto e as instruções customizadas (se houver)!
+    const personalizedMessage = await copywriter.writeMessage(
+        formattedLead, 
+        painPoints, 
+        strategy, 
+        searchCriteria.language || 'Português', 
+        productDetails, 
+        insightsStr,
+        searchCriteria.customInstructions
+    );
     
     const fullDossier = `ESTRATÉGIA DA IA:\n${strategy}\n\nDORES MAPEADAS:\n${painPoints}\n\nRESUMO DA EMPRESA:\n${companySummary}`;
 

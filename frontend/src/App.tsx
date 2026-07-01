@@ -66,6 +66,8 @@ interface Campaign {
   status: 'idle' | 'running' | 'completed';
   progress: number;
   currentStep: string;
+  searchCriteria?: { channel?: 'email' | 'whatsapp' | 'telegram' };
+  customInstructions?: string;
 }
 
 interface Lead {
@@ -80,6 +82,7 @@ interface Lead {
   personalizedMessage: string;
   email?: string;
   phone?: string;
+  social?: string;
   importedAt?: string;
 }
 
@@ -293,7 +296,9 @@ export default function App() {
     language: 'Português',
     targetProduct: 'Scoutly Agent Core',
     limitDaily: 50,
-    frequency: 'immediate'
+    frequency: 'immediate',
+    searchCriteria: { channel: 'email' },
+    customInstructions: ''
   });
 
   // Derive available states from selected countries
@@ -347,6 +352,7 @@ export default function App() {
   };
 
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [aiMemory, setAiMemory] = useState<any[]>([]);
 
   // --- API BACKEND SYNC AND LOADERS ---
   const API_BASE = '/api';
@@ -521,7 +527,9 @@ export default function App() {
           frequency: campToStart.frequency,
           searchCriteria: {
             segment: campToStart.segment,
-            city: campToStart.prospectingArea.cities || 'São Paulo' // Default fallback
+            city: campToStart.prospectingArea.cities || 'São Paulo', // Default fallback
+            channel: campToStart.searchCriteria?.channel || 'email',
+            customInstructions: campToStart.customInstructions || ''
           }
         })
       });
@@ -677,7 +685,9 @@ export default function App() {
           language: newCampaign.language,
           target_product: newCampaign.targetProduct,
           limit_daily: newCampaign.limitDaily,
-          frequency: newCampaign.frequency
+          frequency: newCampaign.frequency,
+          channel: newCampaign.searchCriteria?.channel,
+          custom_instructions: newCampaign.customInstructions
         })
       });
     } catch {
@@ -691,8 +701,11 @@ export default function App() {
       language: 'Português',
       targetProduct: products[0]?.name || 'Scoutly Agent Core',
       limitDaily: 50,
-      frequency: 'immediate'
+      frequency: 'immediate',
+      searchCriteria: { channel: 'email' },
+      customInstructions: ''
     });
+    setActiveTab('campaigns');
   };
 
   if (!isLoggedIn) {
@@ -1153,6 +1166,20 @@ export default function App() {
                           <option key={p.id} value={p.name}>{p.name}</option>
                         ))}
                       </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex justify-between">
+                        Instruções Especiais / Promoções
+                        <span className="text-indigo-500/70 lowercase font-semibold text-[10px]">Opcional</span>
+                      </label>
+                      <textarea 
+                        rows={2}
+                        value={newCampaign.customInstructions || ''}
+                        onChange={e => setNewCampaign({...newCampaign, customInstructions: e.target.value})}
+                        placeholder="Ex: Estamos na Black Friday, ofereça 50% de desconto usando o cupom BLACK50"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400"
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
