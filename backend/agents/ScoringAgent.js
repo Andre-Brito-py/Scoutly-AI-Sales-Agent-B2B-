@@ -1,11 +1,11 @@
 const OpenAI = require('openai');
 require('dotenv').config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || 'fake-key-for-now'
-});
-
 class ScoringAgent {
+    constructor(apiKey) {
+        this.apiKey = apiKey || process.env.OPENAI_API_KEY;
+        this.openai = new OpenAI({ apiKey: this.apiKey || 'fake-key-for-now' });
+    }
     
     /**
      * Motor de Regras Hardcoded
@@ -79,7 +79,7 @@ class ScoringAgent {
         { "finalScore": 92, "aiStrategyDocument": "O texto da estratégia aqui formatado com quebras de linha" }`;
 
         try {
-            const response = await openai.chat.completions.create({
+            const response = await this.openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [{ role: "user", content: prompt }],
                 response_format: { type: "json_object" }

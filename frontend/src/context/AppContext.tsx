@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CompanyProfile, Product, Campaign, Lead, OutreachLog, ProspectingArea } from '../types';
+import type { CompanyProfile, Product, Campaign, Lead, OutreachLog } from '../types';
 
 interface AppState {
   isLoggedIn: boolean;

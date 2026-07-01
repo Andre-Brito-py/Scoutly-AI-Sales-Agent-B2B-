@@ -3,11 +3,11 @@ const cheerio = require('cheerio');
 const OpenAI = require('openai');
 require('dotenv').config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || 'fake-key-for-now'
-});
-
 class CompanyIntelligenceAgent {
+    constructor(apiKey) {
+        this.apiKey = apiKey || process.env.OPENAI_API_KEY;
+        this.openai = new OpenAI({ apiKey: this.apiKey || 'fake-key-for-now' });
+    }
     
     /**
      * Raspa o site da empresa e extrai o texto principal
@@ -40,7 +40,7 @@ class CompanyIntelligenceAgent {
     async analyzeCompany(leadData) {
         const websiteText = await this.scrapeWebsite(leadData.website);
 
-        if (!process.env.OPENAI_API_KEY) {
+        if (!this.apiKey) {
             return `[MOCK] Empresa ${leadData.companyName}. Provável diferencial: Qualidade e inovação (dados simulados devido à ausência de chave de API).`;
         }
 
@@ -57,7 +57,7 @@ class CompanyIntelligenceAgent {
         Responda apenas com o resumo. Seja direto.`;
 
         try {
-            const response = await openai.chat.completions.create({
+            const response = await this.openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [{ role: "user", content: prompt }]
             });

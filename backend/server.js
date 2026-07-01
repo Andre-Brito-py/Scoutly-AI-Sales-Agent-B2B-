@@ -113,6 +113,139 @@ app.post('/api/send', async (req, res) => {
     }
 });
 
+// --- Rota de Perfil da Empresa ---
+app.get('/api/profile', (req, res) => {
+    db.get('SELECT * FROM tenant_profiles LIMIT 1', [], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(row || {});
+    });
+});
+
+app.post('/api/profile', (req, res) => {
+    const { company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice } = req.body;
+    db.run(
+        `INSERT INTO tenant_profiles (id, company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice)
+         VALUES ('profile_1', ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET 
+            company_name=excluded.company_name, 
+            company_domain=excluded.company_domain, 
+            industry=excluded.industry, 
+            description=excluded.description, 
+            value_proposition=excluded.value_proposition, 
+            target_audience=excluded.target_audience, 
+            brand_voice=excluded.brand_voice`,
+        [company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
+});
+
+// --- Rotas de Produtos ---
+app.get('/api/products', (req, res) => {
+    db.all('SELECT * FROM products', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/products', (req, res) => {
+    const { id, name, description, features, target_buyer, pricing_plans } = req.body;
+    db.run(
+        `INSERT INTO products (id, name, description, features, target_buyer, pricing_plans) VALUES (?, ?, ?, ?, ?, ?)`,
+        [id, name, description, features, target_buyer, pricing_plans],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
+});
+
+// --- Rotas de Campanhas ---
+app.get('/api/campaigns', (req, res) => {
+    db.all('SELECT * FROM campaigns', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        // Desserializa os arrays
+        const campaigns = rows.map(r => ({
+            ...r,
+            countries: r.countries ? JSON.parse(r.countries) : [],
+            states: r.states ? JSON.parse(r.states) : []
+        }));
+        res.json(campaigns);
+    });
+});
+
+app.post('/api/campaigns', (req, res) => {
+    const { id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step } = req.body;
+    db.run(
+        `INSERT INTO campaigns (id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, status, progress, current_step],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
+});
+
+// --- Rotas de Logs de Disparo ---
+app.get('/api/outreach-logs', (req, res) => {
+    db.all(`
+        SELECT l.*, leads.companyName, leads.email, leads.contactName 
+        FROM outreach_logs l
+        LEFT JOIN leads ON l.lead_id = leads.id
+        ORDER BY l.sent_at DESC
+    `, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // Mapear para o formato aninhado que o React espera (log.lead.companyName)
+        const formattedRows = rows.map(r => ({
+            ...r,
+            lead: {
+                companyName: r.companyName,
+                email: r.email,
+                contactName: r.contactName
+            }
+        }));
+        
+        res.json(formattedRows);
+    });
+});
+
+// --- Rotas de Chaves de API ---
+app.get('/api/keys', (req, res) => {
+    db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(row || {});
+    });
+});
+
+app.post('/api/keys', (req, res) => {
+    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie } = req.body;
+    db.run(
+        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie)
+         VALUES ('keys_1', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET 
+            openai=excluded.openai, 
+            gemini=excluded.gemini, 
+            anthropic=excluded.anthropic, 
+            apollo=excluded.apollo, 
+            hunter=excluded.hunter, 
+            resend=excluded.resend, 
+            whatsapp_token=excluded.whatsapp_token, 
+            whatsapp_instance=excluded.whatsapp_instance, 
+            telegram_token=excluded.telegram_token, 
+            telegram_chat_id=excluded.telegram_chat_id, 
+            linkedin_cookie=excluded.linkedin_cookie`,
+        [openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
+});
+
 // --- Rotas do Motor Autônomo ---
 
 app.post('/api/campaigns/start', (req, res) => {
@@ -130,6 +263,40 @@ app.post('/api/campaigns/stop', (req, res) => {
     const result = engine.stopCampaign(campaignId);
     if (result.error) return res.status(400).json(result);
     res.json(result);
+});
+
+// --- Rotas de Memória & IA ---
+const MemoryAgent = require('./agents/MemoryAgent');
+
+app.get('/api/memory', (req, res) => {
+    db.all('SELECT * FROM ai_memory ORDER BY created_at DESC', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/memory/learn', (req, res) => {
+    const { leadId, companyName, messageContent } = req.body;
+    
+    // Buscar a API key do banco
+    db.get('SELECT openai FROM api_keys LIMIT 1', [], async (err, row) => {
+        const apiKey = row ? row.openai : null;
+        const memoryAgent = new MemoryAgent(apiKey);
+        
+        const insight = await memoryAgent.extractInsight(companyName, 'B2B', messageContent);
+        
+        // Salva o insight (Regra aprendida)
+        const insightId = 'ins_' + Date.now();
+        db.run(`INSERT INTO ai_memory (id, type, content, context, created_at) VALUES (?, 'insight', ?, ?, ?)`,
+            [insightId, insight, `Aprendido com ${companyName}`, new Date().toISOString()]);
+        
+        // Salva também a abordagem campeã (O texto retido)
+        const approachId = 'app_' + Date.now();
+        db.run(`INSERT INTO ai_memory (id, type, content, context, created_at) VALUES (?, 'approach', ?, ?, ?)`,
+            [approachId, messageContent, `Usado em ${companyName}`, new Date().toISOString()]);
+            
+        res.json({ success: true, insight });
+    });
 });
 
 // Rotas de Dashboard / Testes

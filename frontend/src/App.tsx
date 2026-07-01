@@ -230,43 +230,37 @@ export default function App() {
     linkedinCookie: localStorage.getItem('scoutly_linkedin_cookie') || ''
   });
 
-  const saveApiKeys = (e: React.FormEvent) => {
+  const saveApiKeys = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('scoutly_openai_key', apiKeys.openai);
-    localStorage.setItem('scoutly_gemini_key', apiKeys.gemini);
-    localStorage.setItem('scoutly_anthropic_key', apiKeys.anthropic);
-    localStorage.setItem('scoutly_apollo_key', apiKeys.apollo);
-    localStorage.setItem('scoutly_hunter_key', apiKeys.hunter);
-    localStorage.setItem('scoutly_resend_key', apiKeys.resend);
-    localStorage.setItem('scoutly_whatsapp_token', apiKeys.whatsappToken);
-    localStorage.setItem('scoutly_whatsapp_instance', apiKeys.whatsappInstance);
-    localStorage.setItem('scoutly_telegram_token', apiKeys.telegramToken);
-    localStorage.setItem('scoutly_telegram_chat_id', apiKeys.telegramChatId);
-    localStorage.setItem('scoutly_linkedin_cookie', apiKeys.linkedinCookie);
-    alert('Chaves de API salvas localmente!');
+    try {
+      const response = await fetch(`${API_BASE}/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiKeys)
+      });
+      if (response.ok) {
+        alert('Chaves de API salvas no servidor!');
+      } else {
+        alert('Erro ao salvar no servidor.');
+      }
+    } catch {
+      alert('Erro de conexão ao salvar chaves.');
+    }
   };
 
   // --- PERSISTED STATE / INITIAL SEEDS ---
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>({
-    name: 'Vysify',
-    domain: 'https://vysify.com',
-    industry: 'Enterprise Software & Sales CRM',
-    description: 'Um CRM moderno focado em otimização de pipeline e automações comerciais que ajuda times de venda a fechar mais negócios.',
-    valueProposition: 'Acelerar o ciclo de vendas e estruturar a jornada comercial através de automações inteligentes e pipeline intuitivo.',
-    targetAudience: 'Startups, agências de marketing, e PMEs em crescimento.',
-    brandVoice: 'Profissional, focado em resultados, consultivo e tecnológico.'
+    name: '',
+    domain: '',
+    industry: '',
+    description: '',
+    valueProposition: '',
+    targetAudience: '',
+    brandVoice: ''
   });
 
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: '1',
-      name: 'Vysify CRM Suite',
-      description: 'Plataforma CRM completa com funis de venda, relatórios de performance de SDR e integrações comerciais.',
-      features: 'Funil Kanban, relatórios em tempo real, automações de follow-up, API aberta',
-      targetBuyer: 'Gestores de Vendas, Diretores Comerciais, CEOs e Fundadores de PMEs.',
-      pricingPlans: 'Plano Starter: R$ 99/mês. Plano Pro: R$ 249/mês. Plano Enterprise: Sob consulta.'
-    }
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+
 
   const [newProduct, setNewProduct] = useState<Omit<Product, 'id'>>({
     name: '',
@@ -290,33 +284,7 @@ export default function App() {
     CO: { label: 'Colômbia', flag: '🇨🇴', states: ['Bogotá','Antioquia','Atlântico','Bolívar','Boyacá','Caldas','Caquetá','Cauca','Cesar','Córdoba','Cundinamarca','Chocó','Huila','La Guajira','Magdalena','Meta','Nariño','Norte de Santander','Quindío','Risaralda','Santander','Sucre','Tolima','Valle del Cauca'] },
   };
 
-  const [campaigns, setCampaigns] = useState<Campaign[]>([
-    {
-      id: 'c1',
-      name: 'Prospecção - Clínicas Médicas SP',
-      segment: 'Clínicas Médicas / Estética',
-      prospectingArea: { countries: ['BR'], states: ['São Paulo'], cities: 'São Paulo, Campinas' },
-      language: 'Português',
-      targetProduct: 'Scoutly Agent Core',
-      limitDaily: 50,
-      status: 'completed',
-      progress: 100,
-      currentStep: 'Campanha finalizada'
-    },
-    {
-      id: 'c2',
-      name: 'SaaS Startups - US Outreach',
-      segment: 'Startups de Software B2B',
-      prospectingArea: { countries: ['US'], states: [], cities: '' },
-      language: 'Inglês',
-      targetProduct: 'Scoutly Agent Core',
-      limitDaily: 100,
-      frequency: 'daily',
-      status: 'idle',
-      progress: 0,
-      currentStep: 'Pronto para iniciar'
-    }
-  ]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
   const [newCampaign, setNewCampaign] = useState<Omit<Campaign, 'id' | 'status' | 'progress' | 'currentStep'>>({
     name: '',
@@ -395,12 +363,12 @@ export default function App() {
             industry: data.industry,
             description: data.description,
             valueProposition: data.value_proposition,
-            target_audience: data.target_audience,
-            brand_voice: data.brand_voice
+            targetAudience: data.target_audience,
+            brandVoice: data.brand_voice
           });
         }
       })
-      .catch(() => console.log('Using local fallback profile data'));
+      .catch(() => console.error('Erro ao carregar perfil.'));
 
     // Load Products
     fetch(`${API_BASE}/products`)
@@ -412,12 +380,12 @@ export default function App() {
             name: p.name,
             description: p.description,
             features: Array.isArray(p.features) ? p.features.join(', ') : (p.features || ''),
-            target_buyer: p.target_buyer || '',
-            pricing_plans: p.pricing_plans || ''
+            targetBuyer: p.target_buyer || '',
+            pricingPlans: p.pricing_plans || ''
           })));
         }
       })
-      .catch(() => console.log('Using local fallback products catalog'));
+      .catch(() => console.error('Erro ao carregar produtos.'));
 
     // Load Campaigns
     fetch(`${API_BASE}/campaigns`)
@@ -443,7 +411,7 @@ export default function App() {
           })));
         }
       })
-      .catch(() => console.log('Using local fallback campaigns'));
+      .catch(() => console.error('Erro ao carregar campanhas.'));
 
     // Load Leads
     fetch(`${API_BASE}/leads`)
@@ -463,7 +431,7 @@ export default function App() {
           })));
         }
       })
-      .catch(() => console.log('Using local fallback leads'));
+      .catch(() => console.error('Erro ao carregar leads.'));
 
     // Load Outreach Logs
     fetch(`${API_BASE}/outreach-logs`)
@@ -473,23 +441,31 @@ export default function App() {
           setOutreachLogs(data);
         }
       })
-      .catch(() => {
-        console.log('Using local fallback outreach logs');
-        // Initial Seed Logs Mock
-        setOutreachLogs([
-          {
-            id: 'log1',
-            lead_id: 'l1',
-            campaign_id: 'c1',
-            channel: 'email',
-            recipient: 'sarah.jenkins@acme.com',
-            message_content: 'Olá Sarah, notei que o time da Acme SaaS está escalando as operações em SP...',
-            status: 'sent',
-            sent_at: '2026-06-30T10:15:00Z',
-            lead: { id: 'l1', companyName: 'Acme SaaS Corp', website: 'https://acmesaas.com', score: 95, scoreReason: '', contactName: 'Sarah Jenkins', contactRole: 'VP of Sales', status: 'booked', personalizedMessage: '' }
-          }
-        ]);
-      });
+      .catch(() => console.error('Erro ao carregar outreach logs.'));
+
+    // Load API Keys
+    fetch(`${API_BASE}/keys`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && Object.keys(data).length > 0) {
+          setApiKeys({
+            openai: data.openai || '',
+            gemini: data.gemini || '',
+            anthropic: data.anthropic || '',
+            apollo: data.apollo || '',
+            hunter: data.hunter || '',
+            resend: data.resend || '',
+            whatsappToken: data.whatsapp_token || '',
+            whatsappInstance: data.whatsapp_instance || '',
+            telegramToken: data.telegram_token || '',
+            telegramChatId: data.telegram_chat_id || '',
+            linkedinCookie: data.linkedin_cookie || ''
+          });
+        }
+    fetch(`${API_BASE}/memory`)
+      .then(res => res.json())
+      .then(data => setAiMemory(Array.isArray(data) ? data : []))
+      .catch(() => console.error('Erro ao carregar memória.'));
   }, []);
 
   // Sync profile saving to backend
@@ -674,8 +650,7 @@ export default function App() {
     if (!newCampaign.name || !newCampaign.segment || newCampaign.prospectingArea.countries.length === 0) return;
 
     const tempId = `c_${Date.now()}`;
-    const matchProd = products.find(p => p.name === newCampaign.targetProduct) || products[0];
-
+    
     // Create locally
     setCampaigns(prev => [...prev, {
       id: tempId,
@@ -712,7 +687,8 @@ export default function App() {
       prospectingArea: { countries: [], states: [], cities: '' },
       language: 'Português',
       targetProduct: products[0]?.name || 'Scoutly Agent Core',
-      limitDaily: 50
+      limitDaily: 50,
+      frequency: 'immediate'
     });
   };
 
@@ -756,7 +732,8 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans antialiased transition-colors duration-300">
-      
+      <AgentWorkingOverlay />
+
       {/* ════════════════ SIDEBAR ════════════════ */}
       <aside className="w-80 bg-card border-r border-border flex flex-col justify-between shrink-0 relative z-10 shadow-sm transition-colors duration-300">
         <div>
@@ -1788,13 +1765,19 @@ export default function App() {
                     <span>Abordagens de Alto Impacto (Retidas)</span>
                   </h4>
                   <div className="space-y-3.5">
-                    <div className="p-5 rounded-2xl bg-background border border-border/80">
-                      <span className="text-[10px] text-emerald-600 font-bold uppercase">Taxa de Conversão: 89%</span>
-                      <p className="text-xs text-muted-foreground mt-2.5 italic leading-relaxed font-semibold">
-                        "...vi seu post recente sobre escalabilidade na Alpha Marketing. Criamos abordagens sob medida para agências que desejam..."
-                      </p>
-                      <span className="block text-[10px] text-slate-400 mt-2.5 font-bold">Usado em: Campanhas B2B Brasil</span>
-                    </div>
+                    {aiMemory.filter(m => m.type === 'approach').length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Nenhuma abordagem retida ainda.</p>
+                    ) : (
+                        aiMemory.filter(m => m.type === 'approach').map(m => (
+                            <div key={m.id} className="p-5 rounded-2xl bg-background border border-border/80">
+                              <span className="text-[10px] text-emerald-600 font-bold uppercase">Abordagem Vencedora</span>
+                              <p className="text-xs text-muted-foreground mt-2.5 italic leading-relaxed font-semibold">
+                                "{m.content}"
+                              </p>
+                              <span className="block text-[10px] text-slate-400 mt-2.5 font-bold">{m.context} • {new Date(m.created_at).toLocaleDateString()}</span>
+                            </div>
+                        ))
+                    )}
                   </div>
                 </GlassCard>
 
@@ -1804,12 +1787,16 @@ export default function App() {
                     <span>Insights de Aprendizado Autônomo</span>
                   </h4>
                   <div className="space-y-3.5 text-xs text-muted-foreground font-semibold leading-relaxed">
-                    <div className="p-4 bg-background border border-border rounded-2xl">
-                      🟢 <strong>Preferência de CTA:</strong> Perguntas sobre o gargalo comercial convertem 2x mais do que enviar links diretos de agenda na primeira mensagem.
-                    </div>
-                    <div className="p-4 bg-background border border-border rounded-2xl">
-                      🟢 <strong>Melhor Horário:</strong> Abordagens enviadas entre 10h e 11h30 (horário local do lead) recebem respostas 35% mais rápido.
-                    </div>
+                    {aiMemory.filter(m => m.type === 'insight').length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Nenhum insight gerado ainda.</p>
+                    ) : (
+                        aiMemory.filter(m => m.type === 'insight').map(m => (
+                            <div key={m.id} className="p-4 bg-background border border-border rounded-2xl">
+                              🟢 <strong>Nova Regra:</strong> {m.content}
+                              <span className="block text-[10px] text-slate-400 mt-2 font-bold">{m.context}</span>
+                            </div>
+                        ))
+                    )}
                   </div>
                 </GlassCard>
               </div>
@@ -1835,12 +1822,13 @@ export default function App() {
                         <th className="px-6 py-4.5">Status</th>
                         <th className="px-6 py-4.5">Mensagem Enviada</th>
                         <th className="px-6 py-4.5">Data/Hora</th>
+                        <th className="px-6 py-4.5">Feedback</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs text-slate-650 font-semibold">
                       {outreachLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-10 text-center text-slate-400 italic">
+                          <td colSpan={7} className="px-6 py-10 text-center text-slate-400 italic">
                             Nenhuma atividade de disparo registrada até o momento.
                           </td>
                         </tr>
@@ -1880,6 +1868,28 @@ export default function App() {
                             </td>
                             <td className="px-6 py-4.5 text-slate-400 font-semibold">
                               {new Date(log.sent_at).toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4.5 text-right">
+                                <button 
+                                    onClick={() => {
+                                        fetch(`${API_BASE}/memory/learn`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                leadId: log.lead_id,
+                                                companyName: log.lead?.companyName || 'Empresa',
+                                                messageContent: log.message_content
+                                            })
+                                        }).then(res => res.json()).then(() => {
+                                            alert('O Agente de IA analisou essa mensagem e aprendeu o padrão de sucesso!');
+                                            fetch(`${API_BASE}/memory`).then(r => r.json()).then(data => setAiMemory(data));
+                                        });
+                                    }}
+                                    className="p-1.5 rounded-md hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-colors"
+                                    title="Marcar como Sucesso / Ensinar IA"
+                                >
+                                    <ThumbsUp className="w-4 h-4" />
+                                </button>
                             </td>
                           </tr>
                         ))

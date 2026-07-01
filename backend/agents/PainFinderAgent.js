@@ -1,18 +1,20 @@
 const OpenAI = require('openai');
 require('dotenv').config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || 'fake-key-for-now'
-});
-
 class PainFinderAgent {
+    constructor(apiKey) {
+        this.apiKey = apiKey || process.env.OPENAI_API_KEY;
+        this.openai = new OpenAI({ apiKey: this.apiKey || 'fake-key-for-now' });
+    }
     
     /**
      * Recebe o resumo gerado pelo Company Intelligence Agent e extrai possíveis dores.
      */
     async findPains(companySummary) {
-        if (!process.env.OPENAI_API_KEY) {
-            return `[MOCK] Dores identificadas: \n- Baixa eficiência no outbound.\n- Processos manuais.`;
+        if (!this.apiKey) {
+            return `[MOCK] Dores possíveis:
+- Falta de processos claros de vendas.
+- Ferramentas desconexas e manuais.`;
         }
 
         const prompt = `Você é o Pain Finder Agent, um especialista em vendas B2B (Metodologia SPIN Selling).
@@ -27,7 +29,7 @@ class PainFinderAgent {
         Gere uma lista curta e direta com 3 possíveis problemas que essa empresa enfrenta e que um software B2B de automação/CRM (como o Vysify) poderia resolver.`;
 
         try {
-            const response = await openai.chat.completions.create({
+            const response = await this.openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [{ role: "user", content: prompt }]
             });

@@ -12,7 +12,7 @@ const activeCampaigns = {};
 // Pausa humanizada (ex: 5 segundos para testes, mas em prod seria 3-5 minutos)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function processLeadAutomated(rawLead, campaignId) {
+async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     const provider = new GoogleMapsProvider();
     const formattedLead = provider.formatLead(rawLead);
     
@@ -25,16 +25,39 @@ async function processLeadAutomated(rawLead, campaignId) {
         [formattedLead.id, formattedLead.companyName, formattedLead.contactName, formattedLead.contactRole, formattedLead.email, formattedLead.phone, formattedLead.website, new Date().toISOString()]
     );
 
+    // Carrega o Perfil da Empresa (Tenant) e o Produto Alvo para o Contexto
+    let productDetails = { name: searchCriteria.targetProduct || 'Nosso Produto', features: '', valueProposition: '' };
+    let apiKeys = null;
+    let memoryInsights = [];
+    try {
+        const prodRows = await new Promise((res, rej) => db.get('SELECT * FROM products WHERE name = ?', [searchCriteria.targetProduct], (err, row) => err ? rej(err) : res(row)));
+        if (prodRows) {
+            productDetails = prodRows;
+        }
+        apiKeys = await new Promise((res, rej) => db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => err ? rej(err) : res(row)));
+        
+        // Puxa as regras aprendidas (insights)
+        memoryInsights = await new Promise((res, rej) => db.all("SELECT content FROM ai_memory WHERE type = 'insight' LIMIT 3", [], (err, rows) => err ? rej(err) : res(rows)));
+    } catch (e) {
+        console.warn('[Engine] Erro ao carregar dependências para IA:', e.message);
+    }
+
+    const openaiKey = apiKeys ? apiKeys.openai : null;
+
     // Agentes
-    const intelligence = new CompanyIntelligenceAgent();
-    const painFinder = new PainFinderAgent();
-    const scorer = new ScoringAgent();
-    const copywriter = new CopywriterAgent();
+    const intelligence = new CompanyIntelligenceAgent(openaiKey);
+    const painFinder = new PainFinderAgent(openaiKey);
+    const scorer = new ScoringAgent(openaiKey);
+    const copywriter = new CopywriterAgent(openaiKey);
 
     const companySummary = await intelligence.analyzeCompany(formattedLead);
     const painPoints = await painFinder.findPains(companySummary);
     const { score, strategy } = await scorer.generateStrategy(formattedLead, companySummary, painPoints);
-    const personalizedMessage = await copywriter.writeMessage(formattedLead, painPoints, strategy);
+    
+    const insightsStr = memoryInsights.map(m => `- ${m.content}`).join('\n');
+    
+    // O idioma que o agente deve escrever e o produto que ele vai vender!
+    const personalizedMessage = await copywriter.writeMessage(formattedLead, painPoints, strategy, searchCriteria.language || 'Português', productDetails, insightsStr);
     
     const fullDossier = `ESTRATÉGIA DA IA:\n${strategy}\n\nDORES MAPEADAS:\n${painPoints}\n\nRESUMO DA EMPRESA:\n${companySummary}`;
 
@@ -77,7 +100,7 @@ async function runCampaign(campaignId, searchCriteria) {
             break;
         }
 
-        await processLeadAutomated(lead, campaignId);
+        await processLeadAutomated(lead, campaignId, searchCriteria);
         
         console.log('[Engine] Pausa de 3 segundos para evitar bloqueios de API...');
         await sleep(3000); 

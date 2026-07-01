@@ -1,18 +1,16 @@
 const OpenAI = require('openai');
 require('dotenv').config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || 'fake-key-for-now'
-});
-
 class CopywriterAgent {
+    constructor(apiKey) {
+        this.apiKey = apiKey || process.env.OPENAI_API_KEY;
+        this.openai = new OpenAI({ apiKey: this.apiKey || 'fake-key-for-now' });
+    }
     
-    /**
-     * Gera a copy final usando Dores e Estratégia
-     */
-    async writeMessage(leadData, painPoints, strategy) {
-        if (!process.env.OPENAI_API_KEY) {
-            return `[MOCK] Olá ${leadData.contactName || 'Responsável'}, lendo o site da ${leadData.companyName} notei que vocês podem estar lidando com falta de CRM. Vamos marcar 10 minutos para falar sobre como o Vysify resolve isso?`;
+    async writeMessage(leadData, painPoints, strategy, language, productDetails, insightsStr) {
+        if (!this.apiKey) {
+            const prodName = productDetails ? productDetails.name : 'Vysify';
+            return `[MOCK] Hello ${leadData.contactName || 'Responsável'}, lendo o site da ${leadData.companyName} notei que vocês podem estar lidando com falta de processos. Vamos marcar 10 minutos para falar sobre como o ${prodName} resolve isso?`;
         }
 
         const prompt = `Você é um Copywriter B2B de Elite (Mago do Outbound).
@@ -28,16 +26,25 @@ class CopywriterAgent {
         -- ESTRATÉGIA APROVADA --
         ${strategy}
 
+        -- PRODUTO A SER VENDIDO --
+        Produto: ${productDetails ? productDetails.name : 'Não especificado'}
+        Descrição: ${productDetails ? productDetails.description : ''}
+        Diferenciais: ${productDetails ? productDetails.features : ''}
+
+        -- REGRAS DE OURO (APRENDIDAS COM O PASSADO) --
+        ${insightsStr ? insightsStr : 'Nenhuma regra acumulada ainda.'}
+
         Regras do Email:
         1. Direto e curto (máximo 100 palavras).
         2. Personalizado na primeira frase usando os dados do Lead.
         3. Cutuque a dor mapeada.
-        4. Siga estritamente o "Melhor CTA" definido na estratégia.
+        4. Siga estritamente o "Melhor CTA" definido na estratégia e nas "Regras de Ouro".
+        5. IMPORTANTE: ESCREVA O E-MAIL INTEIRAMENTE EM: ${language || 'Português'}.
         
-        Responda apenas com o corpo do e-mail.`;
+        Responda apenas com o corpo do e-mail. Não adicione saudações como "Aqui está o email" antes.`;
 
         try {
-            const response = await openai.chat.completions.create({
+            const response = await this.openai.chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [{ role: "user", content: prompt }]
             });
