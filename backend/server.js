@@ -122,21 +122,17 @@ app.get('/api/profile', (req, res) => {
 });
 
 app.post('/api/profile', (req, res) => {
-    const { company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice, ai_instructions, calendar_link } = req.body;
+    const { company_name, company_domain, company_context, ai_instructions, calendar_link } = req.body;
     db.run(
-        `INSERT INTO tenant_profiles (id, company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice, ai_instructions, calendar_link)
-         VALUES ('profile_1', $1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO tenant_profiles (id, company_name, company_domain, company_context, ai_instructions, calendar_link)
+         VALUES ('profile_1', $1, $2, $3, $4, $5)
          ON CONFLICT(id) DO UPDATE SET 
             company_name=excluded.company_name, 
             company_domain=excluded.company_domain, 
-            industry=excluded.industry, 
-            description=excluded.description, 
-            value_proposition=excluded.value_proposition, 
-            target_audience=excluded.target_audience, 
-            brand_voice=excluded.brand_voice,
+            company_context=excluded.company_context,
             ai_instructions=excluded.ai_instructions,
             calendar_link=excluded.calendar_link`,
-        [company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice, ai_instructions, calendar_link],
+        [company_name, company_domain, company_context, ai_instructions, calendar_link],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });

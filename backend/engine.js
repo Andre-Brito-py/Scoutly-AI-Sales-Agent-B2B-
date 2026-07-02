@@ -75,7 +75,8 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
         productDetails, 
         insightsStr,
         finalInstructions,
-        tenantProfile?.calendar_link
+        tenantProfile?.calendar_link,
+        tenantProfile?.company_context
     );
     
     const fullDossier = `ESTRATÉGIA DA IA:\n${strategy}\n\nDORES MAPEADAS:\n${painPoints}\n\nRESUMO DA EMPRESA:\n${companySummary}`;

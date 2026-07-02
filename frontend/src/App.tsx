@@ -41,11 +41,7 @@ interface Product {
 interface CompanyProfile {
   name: string;
   domain?: string;
-  industry: string;
-  description: string;
-  valueProposition: string;
-  targetAudience: string;
-  brandVoice: string;
+  companyContext: string;
   aiInstructions?: string;
   calendarLink?: string;
 }
@@ -257,11 +253,7 @@ export default function App() {
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>({
     name: '',
     domain: '',
-    industry: '',
-    description: '',
-    valueProposition: '',
-    targetAudience: '',
-    brandVoice: '',
+    companyContext: '',
     aiInstructions: '',
     calendarLink: ''
   });
@@ -370,11 +362,7 @@ export default function App() {
           setCompanyProfile({
             name: data.company_name,
             domain: data.company_domain || '',
-            industry: data.industry,
-            description: data.description || '',
-            valueProposition: data.value_proposition || '',
-            targetAudience: data.target_audience || '',
-            brandVoice: data.brand_voice || '',
+            companyContext: data.company_context || '',
             aiInstructions: data.ai_instructions || '',
             calendarLink: data.calendar_link || ''
           });
@@ -492,11 +480,7 @@ export default function App() {
         body: JSON.stringify({
           company_name: companyProfile.name,
           company_domain: companyProfile.domain,
-          industry: companyProfile.industry,
-          description: companyProfile.description,
-          value_proposition: companyProfile.valueProposition,
-          target_audience: companyProfile.targetAudience,
-          brand_voice: companyProfile.brandVoice,
+          company_context: companyProfile.companyContext,
           ai_instructions: companyProfile.aiInstructions,
           calendar_link: companyProfile.calendarLink
         })
@@ -1558,54 +1542,16 @@ export default function App() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Mercado / Segmento</label>
-                      <input 
-                        type="text" 
-                        value={companyProfile.industry}
-                        onChange={e => setCompanyProfile({...companyProfile, industry: e.target.value})}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
-                      />
-                    </div>
-
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">O que a Empresa faz? (Explicação Geral)</label>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Contexto Mestre da Empresa</label>
                       <textarea 
-                        rows={3}
-                        value={companyProfile.description}
-                        onChange={e => setCompanyProfile({...companyProfile, description: e.target.value})}
+                        rows={8}
+                        placeholder="Ex: Nós somos a Acme Corp. Vendemos software de RH para médias empresas (50-500 funcs). Nosso diferencial é a implantação em 48 horas e preço 30% menor que o líder de mercado. Quero que a IA escreva com um tom de voz descontraído, direto e consultivo."
+                        value={companyProfile.companyContext || ''}
+                        onChange={e => setCompanyProfile({...companyProfile, companyContext: e.target.value})}
                         className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Proposta de Valor Principal</label>
-                      <textarea 
-                        rows={2}
-                        value={companyProfile.valueProposition}
-                        onChange={e => setCompanyProfile({...companyProfile, valueProposition: e.target.value})}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Público-Alvo Ideal</label>
-                      <input 
-                        type="text" 
-                        value={companyProfile.targetAudience}
-                        onChange={e => setCompanyProfile({...companyProfile, targetAudience: e.target.value})}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Tom de Voz da IA</label>
-                      <input 
-                        type="text" 
-                        value={companyProfile.brandVoice}
-                        onChange={e => setCompanyProfile({...companyProfile, brandVoice: e.target.value})}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
-                      />
+                      <p className="text-[10px] text-muted-foreground mt-1.5">*Cole aqui o seu pitch de vendas, explique o que você faz, para quem vende e como a IA deve se comportar.</p>
                     </div>
 
                     <div className="md:col-span-2 mt-4 pt-4 border-t border-slate-100">

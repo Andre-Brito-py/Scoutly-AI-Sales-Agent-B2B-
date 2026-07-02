@@ -7,7 +7,7 @@ class CopywriterAgent {
         this.openai = new OpenAI({ apiKey: this.apiKey || 'fake-key-for-now' });
     }
     
-    async writeMessage(leadData, painPoints, strategy, language, productDetails, insightsStr, customInstructions, calendarLink) {
+    async writeMessage(leadData, painPoints, strategy, language, productDetails, insightsStr, customInstructions, calendarLink, companyContext) {
         if (!this.apiKey) {
             const prodName = productDetails ? productDetails.name : 'Vysify';
             return `[MOCK] Hello ${leadData.contactName || 'Responsável'}, lendo o site da ${leadData.companyName} notei que vocês podem estar lidando com falta de processos. Vamos marcar 10 minutos para falar sobre como o ${prodName} resolve isso? ${calendarLink ? 'Meu link: ' + calendarLink : ''}`;
@@ -36,6 +36,9 @@ class CopywriterAgent {
         -- ESTRATÉGIA APROVADA --
         ${strategy}
 
+        -- CONTEXTO DA NOSSA EMPRESA --
+        O que fazemos e quem somos: ${companyContext ? companyContext : 'Não especificado pelo usuário, use seu melhor julgamento com base no produto.'}
+        
         -- PRODUTO A SER VENDIDO --
         Produto: ${productDetails ? productDetails.name : 'Não especificado'}
         Descrição: ${productDetails ? productDetails.description : ''}

@@ -55,11 +55,7 @@ async function initDatabase() {
                 id TEXT PRIMARY KEY,
                 company_name TEXT,
                 company_domain TEXT,
-                industry TEXT,
-                description TEXT,
-                value_proposition TEXT,
-                target_audience TEXT,
-                brand_voice TEXT,
+                company_context TEXT,
                 ai_instructions TEXT,
                 calendar_link TEXT
             )
