@@ -851,7 +851,7 @@ export default function App() {
                   <div>
                     <h4 className="text-sm font-bold text-foreground tracking-wide">Contexto de Treinamento Ativo</h4>
                     <p className="text-xs text-muted-foreground mt-2 max-w-4xl leading-relaxed">
-                      O Scoutly está configurado para prospectar no contexto de <strong className="text-foreground font-bold">{companyProfile.name || 'sua empresa'}</strong> {companyProfile.industry ? `(${companyProfile.industry})` : ''}, focando no produto <strong className="text-foreground font-bold">{products[0]?.name || 'Nenhum cadastrado'}</strong>. O motor de scoring <span className="text-primary font-bold">HybridScorer</span> combina regras personalizáveis com LLM para qualificar leads em tempo real.
+                      O Scoutly está configurado para prospectar no contexto de <strong className="text-foreground font-bold">{companyProfile.name || 'sua empresa'}</strong>, focando no produto <strong className="text-foreground font-bold">{products[0]?.name || 'Nenhum cadastrado'}</strong>. O motor de scoring <span className="text-primary font-bold">HybridScorer</span> combina regras personalizáveis com LLM para qualificar leads em tempo real.
                     </p>
                   </div>
                 </div>
