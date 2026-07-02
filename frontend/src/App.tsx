@@ -46,6 +46,8 @@ interface CompanyProfile {
   valueProposition: string;
   targetAudience: string;
   brandVoice: string;
+  aiInstructions?: string;
+  calendarLink?: string;
 }
 
 interface ProspectingArea {
@@ -259,7 +261,9 @@ export default function App() {
     description: '',
     valueProposition: '',
     targetAudience: '',
-    brandVoice: ''
+    brandVoice: '',
+    aiInstructions: '',
+    calendarLink: ''
   });
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -367,10 +371,12 @@ export default function App() {
             name: data.company_name,
             domain: data.company_domain || '',
             industry: data.industry,
-            description: data.description,
-            valueProposition: data.value_proposition,
-            targetAudience: data.target_audience,
-            brandVoice: data.brand_voice
+            description: data.description || '',
+            valueProposition: data.value_proposition || '',
+            targetAudience: data.target_audience || '',
+            brandVoice: data.brand_voice || '',
+            aiInstructions: data.ai_instructions || '',
+            calendarLink: data.calendar_link || ''
           });
         }
       })
@@ -490,7 +496,9 @@ export default function App() {
           description: companyProfile.description,
           value_proposition: companyProfile.valueProposition,
           target_audience: companyProfile.targetAudience,
-          brand_voice: companyProfile.brandVoice
+          brand_voice: companyProfile.brandVoice,
+          ai_instructions: companyProfile.aiInstructions,
+          calendar_link: companyProfile.calendarLink
         })
       });
       if (response.ok) {
@@ -1598,6 +1606,36 @@ export default function App() {
                         onChange={e => setCompanyProfile({...companyProfile, brandVoice: e.target.value})}
                         className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
                       />
+                    </div>
+
+                    <div className="md:col-span-2 mt-4 pt-4 border-t border-slate-100">
+                      <h4 className="font-bold text-sm text-foreground mb-4 flex items-center gap-2">
+                        <i className="fi fi-br-magic-wand text-primary"></i>
+                        Ajustes Dinâmicos
+                      </h4>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Link do Calendário (Google/Calendly)</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: https://cal.com/seu-nome/30min"
+                        value={companyProfile.calendarLink || ''}
+                        onChange={e => setCompanyProfile({...companyProfile, calendarLink: e.target.value})}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Instruções Dinâmicas / Lembretes para a IA</label>
+                      <textarea 
+                        rows={3}
+                        placeholder="Ex: Esta semana, informe os leads que estamos com 50% de desconto na implantação. / Focar na dor X ao invés de Y."
+                        value={companyProfile.aiInstructions || ''}
+                        onChange={e => setCompanyProfile({...companyProfile, aiInstructions: e.target.value})}
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1.5">*Este aviso será lido e priorizado pelo Agente Copywriter em todas as mensagens geradas a partir de agora.</p>
                     </div>
                   </div>
 

@@ -55,4 +55,36 @@ async function sendWhatsApp(phone, messageContent) {
     return { id: 'wpp_' + Date.now(), status: 'sent' };
 }
 
-module.exports = { sendEmail, sendWhatsApp };
+async function sendTelegramNotification(token, chatId, messageContent) {
+    if (!token || !chatId) {
+        console.warn('Credenciais do Telegram ausentes. Pulando notificação.');
+        return false;
+    }
+
+    try {
+        // Usa fetch nativo do Node.js (v18+)
+        const url = `https://api.telegram.org/bot${token}/sendMessage`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: messageContent,
+                parse_mode: 'Markdown'
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Falha ao enviar notificação no Telegram:', await response.text());
+            return false;
+        }
+        return true;
+    } catch (error) {
+        console.error('Erro na requisição para o Telegram:', error);
+        return false;
+    }
+}
+
+module.exports = { sendEmail, sendWhatsApp, sendTelegramNotification };

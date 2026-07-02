@@ -5,6 +5,7 @@ const CompanyIntelligenceAgent = require('./agents/CompanyIntelligenceAgent');
 const PainFinderAgent = require('./agents/PainFinderAgent');
 const ScoringAgent = require('./agents/ScoringAgent');
 const CopywriterAgent = require('./agents/CopywriterAgent');
+const { sendTelegramNotification } = require('./outreach');
 
 // Estado em memória das campanhas rodando
 const activeCampaigns = {};
@@ -30,12 +31,14 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     let productDetails = { name: searchCriteria.targetProduct || 'Nosso Produto', features: '', valueProposition: '' };
     let apiKeys = null;
     let memoryInsights = [];
+    let tenantProfile = null;
     try {
         const prodRows = await new Promise((res, rej) => db.get('SELECT * FROM products WHERE name = $1', [searchCriteria.targetProduct], (err, row) => err ? rej(err) : res(row)));
         if (prodRows) {
             productDetails = prodRows;
         }
         apiKeys = await new Promise((res, rej) => db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => err ? rej(err) : res(row)));
+        tenantProfile = await new Promise((res, rej) => db.get('SELECT * FROM tenant_profiles LIMIT 1', [], (err, row) => err ? rej(err) : res(row)));
         
         // Puxa as regras aprendidas (insights)
         memoryInsights = await new Promise((res, rej) => db.all("SELECT content FROM ai_memory WHERE type = 'insight' LIMIT 3", [], (err, rows) => err ? rej(err) : res(rows)));
@@ -58,6 +61,12 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     const insightsStr = memoryInsights.map(m => `- ${m.content}`).join('\n');
     
     // O idioma que o agente deve escrever, produto e as instruções customizadas (se houver)!
+    // Junta customInstructions da campanha (se tiver) com ai_instructions do perfil
+    const finalInstructions = [
+        searchCriteria.customInstructions,
+        tenantProfile?.ai_instructions
+    ].filter(Boolean).join(' | ');
+
     const personalizedMessage = await copywriter.writeMessage(
         formattedLead, 
         painPoints, 
@@ -65,7 +74,8 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
         searchCriteria.language || 'Português', 
         productDetails, 
         insightsStr,
-        searchCriteria.customInstructions
+        finalInstructions,
+        tenantProfile?.calendar_link
     );
     
     const fullDossier = `ESTRATÉGIA DA IA:\n${strategy}\n\nDORES MAPEADAS:\n${painPoints}\n\nRESUMO DA EMPRESA:\n${companySummary}`;
@@ -81,19 +91,11 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
         console.log(`[Engine] Lead ${formattedLead.companyName} Aprovado (Score ${score}). Preparando disparo...`);
         
         // --- 1. Notificação de Alta Prioridade (Telegram para o Usuário) ---
-        if (score >= 85 && apiKeys?.telegram_token && apiKeys?.telegram_chat_id) {
-            try {
-                const axios = require('axios');
-                const text = `🚨 *Super Lead Encontrado!*\n\n🏢 *Empresa:* ${formattedLead.companyName}\n🔥 *Score:* ${score}\n\n*Resumo:*\n${companySummary}\n\n*Ação:* Mensagem já disparada!`;
-                await axios.post(`https://api.telegram.org/bot${apiKeys.telegram_token}/sendMessage`, {
-                    chat_id: apiKeys.telegram_chat_id,
-                    text: text,
-                    parse_mode: 'Markdown'
-                });
-                console.log(`[Engine] Alerta de Super Lead enviado ao Telegram do Usuário.`);
-            } catch (e) {
-                console.log(`[Engine] Falha ao notificar Telegram: ${e.message}`);
-            }
+        // Notifica apenas leads com Score >= 70 e se tiver as chaves
+        if (apiKeys?.telegram_token && apiKeys?.telegram_chat_id) {
+            const text = `🚨 *Novo Lead Qualificado Encontrado!*\n\n🏢 *Empresa:* ${formattedLead.companyName}\n🔥 *Score:* ${score}/100\n\n*Resumo:*\n${companySummary}\n\n*Mensagem gerada e disparada com sucesso!*`;
+            const sent = await sendTelegramNotification(apiKeys.telegram_token, apiKeys.telegram_chat_id, text);
+            if(sent) console.log(`[Engine] Alerta de Lead enviado ao Telegram do Usuário.`);
         }
 
         // --- 2. Disparo Externo para o Cliente (Email / WhatsApp / Telegram) ---

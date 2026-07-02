@@ -59,7 +59,9 @@ async function initDatabase() {
                 description TEXT,
                 value_proposition TEXT,
                 target_audience TEXT,
-                brand_voice TEXT
+                brand_voice TEXT,
+                ai_instructions TEXT,
+                calendar_link TEXT
             )
         `);
 

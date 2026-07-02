@@ -7,15 +7,20 @@ class CopywriterAgent {
         this.openai = new OpenAI({ apiKey: this.apiKey || 'fake-key-for-now' });
     }
     
-    async writeMessage(leadData, painPoints, strategy, language, productDetails, insightsStr, customInstructions) {
+    async writeMessage(leadData, painPoints, strategy, language, productDetails, insightsStr, customInstructions, calendarLink) {
         if (!this.apiKey) {
             const prodName = productDetails ? productDetails.name : 'Vysify';
-            return `[MOCK] Hello ${leadData.contactName || 'Responsável'}, lendo o site da ${leadData.companyName} notei que vocês podem estar lidando com falta de processos. Vamos marcar 10 minutos para falar sobre como o ${prodName} resolve isso?`;
+            return `[MOCK] Hello ${leadData.contactName || 'Responsável'}, lendo o site da ${leadData.companyName} notei que vocês podem estar lidando com falta de processos. Vamos marcar 10 minutos para falar sobre como o ${prodName} resolve isso? ${calendarLink ? 'Meu link: ' + calendarLink : ''}`;
         }
 
         let customInstructionsBlock = '';
         if (customInstructions && customInstructions.trim() !== '') {
-            customInstructionsBlock = `\n        -- INSTRUÇÕES ESPECIAIS DA CAMPANHA --\n        O usuário definiu a seguinte ordem/promoção para esta abordagem: "${customInstructions}".\n        Você DEVE mencionar isso na sua cópia de forma natural e irresistível.\n`;
+            customInstructionsBlock = `\n        -- INSTRUÇÕES ESPECIAIS (ALTA PRIORIDADE) --\n        O usuário definiu a seguinte ordem ou lembrete para esta abordagem: "${customInstructions}".\n        Você DEVE mencionar isso na sua cópia de forma natural e persuasiva.\n`;
+        }
+        
+        let calendarBlock = '';
+        if (calendarLink && calendarLink.trim() !== '') {
+            calendarBlock = `\n        6. IMPORTANTE: Use este link de calendário como Call to Action (CTA) no final do email: ${calendarLink}\n`;
         }
 
         const prompt = `Você é um Copywriter B2B de Elite (Mago do Outbound).
@@ -44,7 +49,8 @@ class CopywriterAgent {
         2. Personalizado na primeira frase usando os dados do Lead.
         3. Cutuque a dor mapeada.
         4. Siga estritamente o "Melhor CTA" definido na estratégia e nas "Regras de Ouro".
-        5. IMPORTANTE: ESCREVA A MENSAGEM INTEIRAMENTE EM: ${language || 'Português'}.
+        5. ESCREVA A MENSAGEM INTEIRAMENTE EM: ${language || 'Português'}.
+        ${calendarBlock}
         
         Responda apenas com o corpo da mensagem. Não adicione saudações como "Aqui está a mensagem" antes.`;
 
