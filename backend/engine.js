@@ -21,7 +21,8 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     // Salva no banco inicial
     db.run(
         `INSERT INTO leads (id, companyName, contactName, contactRole, email, phone, website, status, importedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'found', ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'found', $8)
+         ON CONFLICT (id) DO NOTHING`,
         [formattedLead.id, formattedLead.companyName, formattedLead.contactName, formattedLead.contactRole, formattedLead.email, formattedLead.phone, formattedLead.website, new Date().toISOString()]
     );
 
@@ -30,7 +31,7 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     let apiKeys = null;
     let memoryInsights = [];
     try {
-        const prodRows = await new Promise((res, rej) => db.get('SELECT * FROM products WHERE name = ?', [searchCriteria.targetProduct], (err, row) => err ? rej(err) : res(row)));
+        const prodRows = await new Promise((res, rej) => db.get('SELECT * FROM products WHERE name = $1', [searchCriteria.targetProduct], (err, row) => err ? rej(err) : res(row)));
         if (prodRows) {
             productDetails = prodRows;
         }
@@ -71,7 +72,7 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
 
     // Salva score e mensagem
     db.run(
-        `UPDATE leads SET score = ?, scoreReason = ?, personalizedMessage = ?, status = 'enriched' WHERE id = ?`,
+        `UPDATE leads SET score = $1, scoreReason = $2, personalizedMessage = $3, status = 'enriched' WHERE id = $4`,
         [score, fullDossier, personalizedMessage, formattedLead.id]
     );
     
@@ -103,14 +104,14 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
 
         db.run(
             `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, sent_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'sent', ?)`,
+             VALUES ($1, $2, $3, $4, $5, $6, 'sent', $7)`,
             ['log_' + Date.now(), formattedLead.id, campaignId, channel, recipient, personalizedMessage, new Date().toISOString()]
         );
-        db.run(`UPDATE leads SET status = 'sent' WHERE id = ?`, [formattedLead.id]);
+        db.run(`UPDATE leads SET status = 'sent' WHERE id = $1`, [formattedLead.id]);
         console.log(`[Engine] Disparo efetuado com sucesso via ${channel} para ${recipient}`);
     } else {
         console.log(`[Engine] Lead ${formattedLead.companyName} Reprovado (Score ${score}). Descartado.`);
-        db.run(`UPDATE leads SET status = 'lost' WHERE id = ?`, [formattedLead.id]);
+        db.run(`UPDATE leads SET status = 'lost' WHERE id = $1`, [formattedLead.id]);
     }
 }
 

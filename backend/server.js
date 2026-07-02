@@ -25,7 +25,7 @@ app.post('/api/leads', (req, res) => {
     
     db.run(
         `INSERT INTO leads (id, companyName, website, score, scoreReason, contactName, contactRole, status, personalizedMessage, email, phone, importedAt) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [id, companyName, website, score, scoreReason, contactName, contactRole, status, personalizedMessage, email, phone, importedAt],
         function (err) {
             if (err) return res.status(500).json({ error: err.message });
@@ -64,7 +64,7 @@ app.post('/api/score', async (req, res) => {
         const fullDossier = `ESTRATÉGIA DA IA:\n${strategy}\n\nDORES MAPEADAS:\n${painPoints}\n\nRESUMO DA EMPRESA:\n${companySummary}`;
 
         db.run(
-            `UPDATE leads SET score = ?, scoreReason = ?, personalizedMessage = ?, status = 'enriched' WHERE id = ?`,
+            `UPDATE leads SET score = $1, scoreReason = $2, personalizedMessage = $3, status = 'enriched' WHERE id = $4`,
             [score, fullDossier, personalizedMessage, leadData.id],
             function(err) {
                 if (err) console.error('Erro ao salvar score:', err);
@@ -100,12 +100,12 @@ app.post('/api/send', async (req, res) => {
         const logId = 'log_' + Date.now();
         db.run(
             `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, sent_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'sent', ?)`,
+             VALUES ($1, $2, $3, $4, $5, $6, 'sent', $7)`,
             [logId, lead_id, campaign_id, channel, recipient, message_content, new Date().toISOString()]
         );
 
         // Atualiza status do lead
-        db.run(`UPDATE leads SET status = 'sent' WHERE id = ?`, [lead_id]);
+        db.run(`UPDATE leads SET status = 'sent' WHERE id = $1`, [lead_id]);
 
         res.json({ success: true, dispatchId: dispatchResult.id });
     } catch (error) {
@@ -125,7 +125,7 @@ app.post('/api/profile', (req, res) => {
     const { company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice } = req.body;
     db.run(
         `INSERT INTO tenant_profiles (id, company_name, company_domain, industry, description, value_proposition, target_audience, brand_voice)
-         VALUES ('profile_1', ?, ?, ?, ?, ?, ?, ?)
+         VALUES ('profile_1', $1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT(id) DO UPDATE SET 
             company_name=excluded.company_name, 
             company_domain=excluded.company_domain, 
@@ -153,8 +153,8 @@ app.get('/api/products', (req, res) => {
 app.post('/api/products', (req, res) => {
     const { id, name, description, features, target_buyer, pricing_plans } = req.body;
     db.run(
-        `INSERT INTO products (id, name, description, features, target_buyer, pricing_plans) VALUES (?, ?, ?, ?, ?, ?)`,
-        [id, name, description, features, target_buyer, pricing_plans],
+        `INSERT INTO products (id, name, description, features) VALUES ($1, $2, $3, $4)`,
+        [id, name, description, features],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
@@ -180,7 +180,7 @@ app.post('/api/campaigns', (req, res) => {
     const { id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step } = req.body;
     db.run(
         `INSERT INTO campaigns (id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [id, name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, status, progress, current_step],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
@@ -224,21 +224,13 @@ app.get('/api/keys', (req, res) => {
 app.post('/api/keys', (req, res) => {
     const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie } = req.body;
     db.run(
-        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie)
-         VALUES ('keys_1', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO api_keys (id, openai, apollo, calcom)
+         VALUES ('keys_1', $1, $2, $3)
          ON CONFLICT(id) DO UPDATE SET 
             openai=excluded.openai, 
-            gemini=excluded.gemini, 
-            anthropic=excluded.anthropic, 
             apollo=excluded.apollo, 
-            hunter=excluded.hunter, 
-            resend=excluded.resend, 
-            whatsapp_token=excluded.whatsapp_token, 
-            whatsapp_instance=excluded.whatsapp_instance, 
-            telegram_token=excluded.telegram_token, 
-            telegram_chat_id=excluded.telegram_chat_id, 
-            linkedin_cookie=excluded.linkedin_cookie`,
-        [openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie],
+            calcom=excluded.calcom`,
+        [openai, apollo, calcom],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
@@ -287,12 +279,12 @@ app.post('/api/memory/learn', (req, res) => {
         
         // Salva o insight (Regra aprendida)
         const insightId = 'ins_' + Date.now();
-        db.run(`INSERT INTO ai_memory (id, type, content, context, created_at) VALUES (?, 'insight', ?, ?, ?)`,
+        db.run(`INSERT INTO ai_memory (id, type, content, context, created_at) VALUES ($1, 'insight', $2, $3, $4)`,
             [insightId, insight, `Aprendido com ${companyName}`, new Date().toISOString()]);
         
         // Salva também a abordagem campeã (O texto retido)
         const approachId = 'app_' + Date.now();
-        db.run(`INSERT INTO ai_memory (id, type, content, context, created_at) VALUES (?, 'approach', ?, ?, ?)`,
+        db.run(`INSERT INTO ai_memory (id, type, content, context, created_at) VALUES ($1, 'approach', $2, $3, $4)`,
             [approachId, messageContent, `Usado em ${companyName}`, new Date().toISOString()]);
             
         res.json({ success: true, insight });

@@ -1,20 +1,22 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
+require('dotenv').config();
 
-const dbPath = path.resolve(__dirname, 'scoutly.db');
-
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Erro ao conectar com o banco de dados:', err.message);
-    } else {
-        console.log('Conectado ao banco de dados SQLite.');
-    }
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/scoutly',
+    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('neon.tech') ? { rejectUnauthorized: false } : false
 });
 
-function initDatabase() {
-    db.serialize(() => {
+pool.on('error', (err) => {
+    console.error('Erro inesperado no banco de dados do Postgres:', err);
+});
+
+async function initDatabase() {
+    try {
+        const client = await pool.connect();
+        console.log('Conectado ao banco de dados PostgreSQL.');
+
         // Tabela de Leads
-        db.run(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS leads (
                 id TEXT PRIMARY KEY,
                 companyName TEXT NOT NULL,
@@ -32,7 +34,7 @@ function initDatabase() {
         `);
 
         // Tabela de Logs de Disparos
-        db.run(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS outreach_logs (
                 id TEXT PRIMARY KEY,
                 lead_id TEXT NOT NULL,
@@ -48,7 +50,7 @@ function initDatabase() {
         `);
 
         // Tabela Perfil da Empresa (Apenas 1 registro esperado)
-        db.run(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS tenant_profiles (
                 id TEXT PRIMARY KEY,
                 company_name TEXT,
@@ -62,7 +64,7 @@ function initDatabase() {
         `);
 
         // Tabela Produtos
-        db.run(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS products (
                 id TEXT PRIMARY KEY,
                 name TEXT,
@@ -74,7 +76,7 @@ function initDatabase() {
         `);
 
         // Tabela Campanhas
-        db.run(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS campaigns (
                 id TEXT PRIMARY KEY,
                 name TEXT,
@@ -93,7 +95,7 @@ function initDatabase() {
         `);
 
         // Tabela de API Keys (Apenas 1 registro esperado)
-        db.run(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS api_keys (
                 id TEXT PRIMARY KEY,
                 openai TEXT,
@@ -111,7 +113,7 @@ function initDatabase() {
         `);
 
         // Tabela de Memória & IA (Insights Retidos)
-        db.run(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS ai_memory (
                 id TEXT PRIMARY KEY,
                 type TEXT,
@@ -122,9 +124,23 @@ function initDatabase() {
         `);
 
         console.log('Tabelas inicializadas com sucesso.');
-    });
+        client.release();
+    } catch (err) {
+        console.error('Erro ao inicializar tabelas:', err);
+    }
 }
 
 initDatabase();
+
+// Wrapper simples para manter a mesma interface do sqlite3 e minimizar alterações no server.js
+const db = {
+    pool,
+    query: (text, params) => pool.query(text, params),
+    all: (text, params, cb) => pool.query(text, params, (err, res) => cb(err, res ? res.rows : null)),
+    get: (text, params, cb) => pool.query(text, params, (err, res) => cb(err, res && res.rows.length > 0 ? res.rows[0] : null)),
+    run: (text, params, cb) => pool.query(text, params, (err, res) => {
+        if (cb) cb.call({ changes: res ? res.rowCount : 0 }, err);
+    })
+};
 
 module.exports = db;
