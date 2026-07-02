@@ -25,7 +25,9 @@ import {
   AlertTriangle,
   Upload,
   Moon,
-  Sun
+  Sun,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 
 // --- TYPES ---
@@ -268,6 +270,7 @@ export default function App() {
     targetBuyer: '',
     pricingPlans: ''
   });
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // --- GEO-TARGETING DATA ---
   const COUNTRY_DATA: Record<string, { label: string; flag: string; states: string[] }> = {
@@ -624,28 +627,67 @@ export default function App() {
     e.preventDefault();
     if (!newProduct.name || !newProduct.description) return;
     
-    // Save locally
-    const tempId = `p_${Date.now()}`;
-    setProducts(prev => [...prev, { id: tempId, ...newProduct }]);
-
-    // Save to Backend API
-    try {
-      await fetch(`${API_BASE}/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newProduct.name,
-          description: newProduct.description,
-          features: newProduct.features.split(','),
-          target_buyer: newProduct.targetBuyer,
-          pricing_plans: newProduct.pricingPlans
-        })
-      });
-    } catch {
-      console.log('Saved product in frontend sandbox');
+    if (editingProductId) {
+      setProducts(prev => prev.map(p => p.id === editingProductId ? { id: editingProductId, ...newProduct } : p));
+      try {
+        await fetch(`${API_BASE}/products/${editingProductId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newProduct.name,
+            description: newProduct.description,
+            features: newProduct.features,
+            target_buyer: newProduct.targetBuyer,
+            pricing_plans: newProduct.pricingPlans
+          })
+        });
+        setNewProduct({ name: '', description: '', features: '', targetBuyer: '', pricingPlans: '' });
+        setEditingProductId(null);
+      } catch {
+        console.log('Error updating product on server. Saved locally.');
+      }
+    } else {
+      const tempId = `p_${Date.now()}`;
+      setProducts(prev => [...prev, { id: tempId, ...newProduct }]);
+      try {
+        await fetch(`${API_BASE}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: tempId,
+            name: newProduct.name,
+            description: newProduct.description,
+            features: newProduct.features,
+            target_buyer: newProduct.targetBuyer,
+            pricing_plans: newProduct.pricingPlans
+          })
+        });
+      } catch {
+        console.log('Saved product in frontend sandbox');
+      }
+      setNewProduct({ name: '', description: '', features: '', targetBuyer: '', pricingPlans: '' });
     }
+  };
 
-    setNewProduct({ name: '', description: '', features: '', targetBuyer: '', pricingPlans: '' });
+  const handleEditProduct = (prod: Product) => {
+    setNewProduct({
+      name: prod.name,
+      description: prod.description,
+      features: prod.features,
+      targetBuyer: prod.targetBuyer,
+      pricingPlans: prod.pricingPlans
+    });
+    setEditingProductId(prod.id);
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este produto?')) return;
+    setProducts(prev => prev.filter(p => p.id !== id));
+    try {
+      await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' });
+    } catch {
+      console.error('Erro ao excluir no servidor.');
+    }
   };
 
   const handleCreateCampaign = async (e: React.FormEvent) => {
@@ -1453,8 +1495,20 @@ export default function App() {
                       type="submit" 
                       className="w-full py-3.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-all duration-200 shadow-md shadow-slate-900/10"
                     >
-                      Salvar Produto
+                      {editingProductId ? 'Atualizar Produto' : 'Salvar Produto'}
                     </button>
+                    {editingProductId && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setEditingProductId(null);
+                          setNewProduct({ name: '', description: '', features: '', targetBuyer: '', pricingPlans: '' });
+                        }}
+                        className="w-full py-3.5 bg-transparent border border-border hover:bg-slate-50 dark:hover:bg-zinc-900 text-foreground rounded-xl text-sm font-bold transition-all duration-200 mt-2"
+                      >
+                        Cancelar Edição
+                      </button>
+                    )}
                   </form>
                 </GlassCard>
 
@@ -1468,6 +1522,14 @@ export default function App() {
                           <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block mt-1.5">
                             Persona Alvo: {prod.targetBuyer}
                           </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEditProduct(prod)} className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-colors">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteProduct(prod.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
 
@@ -1484,7 +1546,7 @@ export default function App() {
 
                       <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap gap-2">
                         {prod.features.split(',').map((f, i) => (
-                          <span key={i} className="text-xs bg-slate-100 border border-border text-slate-650 px-3 py-1 rounded-full font-bold">
+                          <span key={i} className="text-xs bg-slate-100 dark:bg-zinc-800 border border-border text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full font-bold">
                             {f.trim()}
                           </span>
                         ))}

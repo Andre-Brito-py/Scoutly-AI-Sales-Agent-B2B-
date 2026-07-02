@@ -151,13 +151,34 @@ app.get('/api/products', (req, res) => {
 app.post('/api/products', (req, res) => {
     const { id, name, description, features, target_buyer, pricing_plans } = req.body;
     db.run(
-        `INSERT INTO products (id, name, description, features) VALUES ($1, $2, $3, $4)`,
-        [id, name, description, features],
+        `INSERT INTO products (id, name, description, features, target_buyer, pricing_plans) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, name, description, features, target_buyer, pricing_plans],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
         }
     );
+});
+
+app.put('/api/products/:id', (req, res) => {
+    const { id } = req.params;
+    const { name, description, features, target_buyer, pricing_plans } = req.body;
+    db.run(
+        `UPDATE products SET name = $1, description = $2, features = $3, target_buyer = $4, pricing_plans = $5 WHERE id = $6`,
+        [name, description, features, target_buyer, pricing_plans, id],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
+});
+
+app.delete('/api/products/:id', (req, res) => {
+    const { id } = req.params;
+    db.run(`DELETE FROM products WHERE id = $1`, [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
 });
 
 // --- Rotas de Campanhas ---
