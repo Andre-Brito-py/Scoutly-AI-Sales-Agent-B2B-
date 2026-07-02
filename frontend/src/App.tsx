@@ -355,7 +355,7 @@ export default function App() {
   const [aiMemory, setAiMemory] = useState<any[]>([]);
 
   // --- API BACKEND SYNC AND LOADERS ---
-  const API_BASE = '/api';
+  const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
   useEffect(() => {
     // Load Company Profile
