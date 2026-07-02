@@ -60,7 +60,7 @@ interface Campaign {
   segment: string;
   prospectingArea: ProspectingArea;
   language: string;
-  targetProduct: string;
+  targetProducts: string[];
   limitDaily: number;
   frequency: 'immediate' | 'daily';
   status: 'idle' | 'running' | 'completed';
@@ -293,7 +293,7 @@ export default function App() {
     segment: '',
     prospectingArea: { countries: [], states: [], cities: '' },
     language: 'Português',
-    targetProduct: 'Scoutly Agent Core',
+    targetProducts: [],
     limitDaily: 50,
     frequency: 'immediate',
     searchCriteria: { channel: 'email' },
@@ -405,7 +405,9 @@ export default function App() {
               cities: c.cities || ''
             },
             language: c.language,
-            targetProduct: c.target_product || 'Scoutly Agent Core',
+            targetProducts: (function() {
+              try { return JSON.parse(c.target_product || '[]'); } catch { return [c.target_product || 'Scoutly Agent Core']; }
+            })(),
             limitDaily: c.limit_daily,
             frequency: c.frequency || 'immediate',
             status: c.status,
@@ -522,7 +524,10 @@ export default function App() {
           frequency: campToStart.frequency,
           searchCriteria: {
             segment: campToStart.segment,
-            city: campToStart.prospectingArea.cities || 'São Paulo', // Default fallback
+            countries: campToStart.prospectingArea.countries,
+            states: campToStart.prospectingArea.states,
+            cities: campToStart.prospectingArea.cities,
+            targetProducts: campToStart.targetProducts,
             channel: campToStart.searchCriteria?.channel || 'email',
             customInstructions: campToStart.customInstructions || ''
           }
@@ -604,7 +609,8 @@ export default function App() {
   }, [runningCampaignId]);
 
   const addMockLead = (camp: Campaign) => {
-    const selectedProd = products.find(p => p.name === camp.targetProduct) || products[0];
+    const selectedProdName = camp.targetProducts[0] || 'Scoutly Agent Core';
+    const selectedProd = products.find(p => p.name === selectedProdName) || products[0];
     const regionLabel = buildRegionLabel(camp.prospectingArea);
     const generatedMsg = `Olá, notei que sua empresa atua no segmento de ${camp.segment} na região de ${regionLabel}. Com base no ${companyProfile.name}, nós oferecemos o ${selectedProd?.name || 'nosso produto'}, que ${selectedProd?.description || 'ajuda sua operação'}. Podemos agendar um papo rápido?`;
 
@@ -711,13 +717,14 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: tempId,
           name: newCampaign.name,
           segment: newCampaign.segment,
           countries: newCampaign.prospectingArea.countries,
           states: newCampaign.prospectingArea.states,
           cities: newCampaign.prospectingArea.cities,
           language: newCampaign.language,
-          target_product: newCampaign.targetProduct,
+          target_product: JSON.stringify(newCampaign.targetProducts),
           limit_daily: newCampaign.limitDaily,
           frequency: newCampaign.frequency,
           channel: newCampaign.searchCriteria?.channel,
@@ -733,7 +740,7 @@ export default function App() {
       segment: '',
       prospectingArea: { countries: [], states: [], cities: '' },
       language: 'Português',
-      targetProduct: products[0]?.name || 'Scoutly Agent Core',
+      targetProducts: [],
       limitDaily: 50,
       frequency: 'immediate',
       searchCriteria: { channel: 'email' },
@@ -1168,16 +1175,31 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Produto a Ser Divulgado</label>
-                      <select 
-                        value={newCampaign.targetProduct}
-                        onChange={e => setNewCampaign({...newCampaign, targetProduct: e.target.value})}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
-                      >
-                        {products.map(p => (
-                          <option key={p.id} value={p.name}>{p.name}</option>
-                        ))}
-                      </select>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Produtos a Serem Divulgados</label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-2 bg-background border border-border p-3 rounded-xl">
+                        {products.length === 0 ? (
+                           <span className="text-xs text-muted-foreground">Nenhum produto cadastrado.</span>
+                        ) : (
+                          products.map(p => (
+                            <label key={p.id} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                              <input 
+                                type="checkbox"
+                                checked={newCampaign.targetProducts?.includes(p.name)}
+                                onChange={e => {
+                                  const list = newCampaign.targetProducts || [];
+                                  if (e.target.checked) {
+                                    setNewCampaign({...newCampaign, targetProducts: [...list, p.name]});
+                                  } else {
+                                    setNewCampaign({...newCampaign, targetProducts: list.filter(name => name !== p.name)});
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500 bg-background"
+                              />
+                              <span className="text-sm font-semibold text-foreground">{p.name}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -1251,7 +1273,7 @@ export default function App() {
                           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs text-muted-foreground font-semibold">
                             <span><strong>Segmento:</strong> {camp.segment}</span>
                             <span><strong>Região:</strong> {buildRegionLabel(camp.prospectingArea)}</span>
-                            <span><strong>Produto:</strong> {camp.targetProduct}</span>
+                            <span><strong>Produtos:</strong> {camp.targetProducts?.length > 0 ? camp.targetProducts.join(', ') : 'Nenhum (Geral)'}</span>
                           </div>
                         </div>
 

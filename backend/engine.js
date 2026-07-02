@@ -28,14 +28,36 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     );
 
     // Carrega o Perfil da Empresa (Tenant) e o Produto Alvo para o Contexto
-    let productDetails = { name: searchCriteria.targetProduct || 'Nosso Produto', features: '', valueProposition: '' };
+    let productDetails = { name: 'Múltiplos Produtos (A IA deve escolher o melhor encaixe)', description: '', features: '' };
     let apiKeys = null;
     let memoryInsights = [];
     let tenantProfile = null;
     try {
-        const prodRows = await new Promise((res, rej) => db.get('SELECT * FROM products WHERE name = $1', [searchCriteria.targetProduct], (err, row) => err ? rej(err) : res(row)));
-        if (prodRows) {
-            productDetails = prodRows;
+        let targetProducts = [];
+        if (Array.isArray(searchCriteria.targetProducts)) {
+            targetProducts = searchCriteria.targetProducts;
+        } else if (typeof searchCriteria.targetProducts === 'string') {
+            try {
+                targetProducts = JSON.parse(searchCriteria.targetProducts || '[]');
+                if (!Array.isArray(targetProducts)) targetProducts = [searchCriteria.targetProducts];
+            } catch (e) {
+                targetProducts = [searchCriteria.targetProducts];
+            }
+        }
+
+        if (targetProducts.length > 0) {
+            const placeholders = targetProducts.map(() => '?').join(',');
+            const prodRows = await new Promise((res, rej) => db.all(`SELECT * FROM products WHERE name IN (${placeholders})`, targetProducts, (err, rows) => err ? rej(err) : res(rows)));
+            
+            if (prodRows && prodRows.length > 0) {
+                if (prodRows.length === 1) {
+                    productDetails = prodRows[0];
+                } else {
+                    productDetails.name = 'CATÁLOGO DE PRODUTOS / SERVIÇOS (ESCOLHA O MELHOR PARA O LEAD)';
+                    productDetails.description = prodRows.map(p => `[Produto: ${p.name}]\nDescrição: ${p.description}\nPreços: ${p.pricing_plans || 'N/A'}`).join('\n\n');
+                    productDetails.features = prodRows.map(p => `[Diferenciais de ${p.name}]: ${p.features}\nPersona Alvo: ${p.target_buyer || 'Geral'}`).join('\n\n');
+                }
+            }
         }
         apiKeys = await new Promise((res, rej) => db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => err ? rej(err) : res(row)));
         tenantProfile = await new Promise((res, rej) => db.get('SELECT * FROM tenant_profiles LIMIT 1', [], (err, row) => err ? rej(err) : res(row)));
