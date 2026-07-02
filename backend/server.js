@@ -224,13 +224,33 @@ app.get('/api/keys', (req, res) => {
 app.post('/api/keys', (req, res) => {
     const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie } = req.body;
     db.run(
-        `INSERT INTO api_keys (id, openai, apollo, calcom)
-         VALUES ('keys_1', $1, $2, $3)
+        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie)
+         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          ON CONFLICT(id) DO UPDATE SET 
-            openai=excluded.openai, 
-            apollo=excluded.apollo, 
-            calcom=excluded.calcom`,
-        [openai, apollo, calcom],
+            openai=excluded.openai,
+            gemini=excluded.gemini,
+            anthropic=excluded.anthropic,
+            apollo=excluded.apollo,
+            hunter=excluded.hunter,
+            resend=excluded.resend,
+            whatsapp_token=excluded.whatsapp_token,
+            whatsapp_instance=excluded.whatsapp_instance,
+            telegram_token=excluded.telegram_token,
+            telegram_chat_id=excluded.telegram_chat_id,
+            linkedin_cookie=excluded.linkedin_cookie`,
+        [
+            openai || null, 
+            gemini || null, 
+            anthropic || null, 
+            apollo || null, 
+            hunter || null, 
+            resend || null, 
+            whatsappToken || null, 
+            whatsappInstance || null, 
+            telegramToken || null, 
+            telegramChatId || null, 
+            linkedinCookie || null
+        ],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
