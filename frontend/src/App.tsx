@@ -27,7 +27,8 @@ import {
   Moon,
   Sun,
   Edit2,
-  Trash2
+  Trash2,
+  Menu
 } from 'lucide-react';
 
 // --- TYPES ---
@@ -195,6 +196,7 @@ export default function App() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [scheduleLead, setScheduleLead] = useState<Lead | null>(null);
   const [scheduleData, setScheduleData] = useState({ date: '', time: '', platform: 'Google Meet', notes: '' });
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('scoutly_theme') === 'dark' || 
@@ -792,7 +794,13 @@ export default function App() {
       <AgentWorkingOverlay />
 
       {/* ════════════════ SIDEBAR ════════════════ */}
-      <aside className="w-80 bg-card border-r border-border flex flex-col justify-between shrink-0 relative z-10 shadow-sm transition-colors duration-300">
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+      <aside className={`fixed inset-y-0 left-0 w-80 bg-card border-r border-border flex flex-col justify-between shrink-0 z-50 shadow-xl transition-transform duration-300 lg:relative lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div>
           {/* Logo */}
           <div className="px-7 py-7 border-b border-border bg-card">
@@ -817,26 +825,26 @@ export default function App() {
             <div>
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] px-4 block mb-3">Visão Geral</span>
               <div className="space-y-1.5">
-                <NavItem icon={TrendingUp} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                <NavItem icon={Users} label="Pipeline & CRM" active={activeTab === 'crm'} onClick={() => setActiveTab('crm')} badge={<span className="ml-auto text-[10px] bg-slate-100 text-muted-foreground px-2 py-0.5 rounded-full font-bold border border-border/50">{leads.length}</span>} />
-                <NavItem icon={MessageSquare} label="Logs de Disparo" active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
+                <NavItem icon={TrendingUp} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
+                <NavItem icon={Users} label="Pipeline & CRM" active={activeTab === 'crm'} onClick={() => { setActiveTab('crm'); setIsMobileMenuOpen(false); }} badge={<span className="ml-auto text-[10px] bg-slate-100 text-muted-foreground px-2 py-0.5 rounded-full font-bold border border-border/50">{leads.length}</span>} />
+                <NavItem icon={MessageSquare} label="Logs de Disparo" active={activeTab === 'logs'} onClick={() => { setActiveTab('logs'); setIsMobileMenuOpen(false); }} />
               </div>
             </div>
 
             <div>
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] px-4 block mb-3">Operação e Campanhas</span>
               <div className="space-y-1.5">
-                <NavItem icon={Play} label="Campanhas IA" active={activeTab === 'campaigns'} onClick={() => setActiveTab('campaigns')} badge={runningCampaignId ? <span className="w-2 h-2 rounded-full bg-indigo-600 ml-auto animate-pulse" /> : undefined} />
-                <NavItem icon={Upload} label="Importar Leads" active={activeTab === 'import'} onClick={() => setActiveTab('import')} />
-                <NavItem icon={Package} label="Produtos" active={activeTab === 'products'} onClick={() => setActiveTab('products')} />
+                <NavItem icon={Play} label="Campanhas IA" active={activeTab === 'campaigns'} onClick={() => { setActiveTab('campaigns'); setIsMobileMenuOpen(false); }} badge={runningCampaignId ? <span className="w-2 h-2 rounded-full bg-indigo-600 ml-auto animate-pulse" /> : undefined} />
+                <NavItem icon={Upload} label="Importar Leads" active={activeTab === 'import'} onClick={() => { setActiveTab('import'); setIsMobileMenuOpen(false); }} />
+                <NavItem icon={Package} label="Produtos" active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setIsMobileMenuOpen(false); }} />
               </div>
             </div>
 
             <div>
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] px-4 block mb-3">Ajustes & Inteligência</span>
               <div className="space-y-1.5">
-                <NavItem icon={BrainCircuit} label="Memória & IA" active={activeTab === 'memory'} onClick={() => setActiveTab('memory')} />
-                <NavItem icon={Building2} label="Perfil da Startup" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+                <NavItem icon={BrainCircuit} label="Memória & IA" active={activeTab === 'memory'} onClick={() => { setActiveTab('memory'); setIsMobileMenuOpen(false); }} />
+                <NavItem icon={Building2} label="Perfil da Startup" active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setIsMobileMenuOpen(false); }} />
               </div>
             </div>
           </div>
@@ -859,9 +867,15 @@ export default function App() {
       <main className="flex-1 flex flex-col min-w-0 bg-background transition-colors duration-300 relative">
         <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
         {/* TOP BAR */}
-        <header className="h-24 border-b border-border px-10 flex items-center justify-between bg-card/50 backdrop-blur-md shrink-0 relative z-20 shadow-sm transition-colors duration-300">
+        <header className="h-24 border-b border-border px-6 lg:px-10 flex items-center justify-between bg-card/50 backdrop-blur-md shrink-0 relative z-20 shadow-sm transition-colors duration-300">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-extrabold text-foreground tracking-tight uppercase">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-2 -ml-2 text-foreground hover:bg-muted rounded-xl transition"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h1 className="text-lg lg:text-xl font-extrabold text-foreground tracking-tight uppercase">
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'campaigns' && 'Campanhas Autônomas'}
               {activeTab === 'crm' && 'Pipeline & CRM'}
@@ -872,12 +886,12 @@ export default function App() {
               {activeTab === 'import' && 'Importar Leads'}
             </h1>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-2 text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3.5 py-2 rounded-full font-bold shadow-sm">
+          <div className="flex items-center gap-2 lg:gap-4">
+            <span className="hidden md:flex items-center gap-2 text-xs bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3.5 py-2 rounded-full font-bold shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Agente Ativo
             </span>
-            <span className="flex items-center gap-2 text-xs bg-primary/10 text-primary border border-primary/20 px-3.5 py-2 rounded-full font-bold shadow-sm">
+            <span className="flex items-center gap-2 text-xs bg-primary/10 text-primary border border-primary/20 px-2 lg:px-3.5 py-2 rounded-full font-bold shadow-sm">
               <BrainCircuit className="w-4 h-4 text-primary" />
               HybridScorer Online
             </span>
@@ -885,7 +899,7 @@ export default function App() {
         </header>
 
         {/* WORKSPACE CONTENT */}
-        <div className="flex-1 overflow-y-auto p-10 bg-background/50">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-10 bg-background/50">
           
           {/* DASHBOARD TAB */}
           {activeTab === 'dashboard' && (
