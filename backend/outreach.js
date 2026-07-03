@@ -87,4 +87,36 @@ async function sendTelegramNotification(token, chatId, messageContent) {
     }
 }
 
-module.exports = { sendEmail, sendWhatsApp, sendTelegramNotification };
+async function sendTwilioSMS(accountSid, authToken, fromNumber, to, body) {
+    if (!accountSid || !authToken || !fromNumber || !to) {
+        console.warn('Credenciais da Twilio ausentes. Pulando envio de SMS.');
+        return false;
+    }
+
+    try {
+        const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+        const encodedData = new URLSearchParams();
+        encodedData.append('To', to);
+        encodedData.append('From', fromNumber);
+        encodedData.append('Body', body);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64')
+            },
+            body: encodedData
+        });
+
+        if (response.ok) return true;
+        const errorData = await response.json();
+        console.error('[Twilio] API Erro:', errorData);
+        return false;
+    } catch (e) {
+        console.error('[Twilio] Erro ao enviar SMS:', e.message);
+        return false;
+    }
+}
+
+module.exports = { sendEmail, sendWhatsApp, sendTelegramNotification, sendTwilioSMS };

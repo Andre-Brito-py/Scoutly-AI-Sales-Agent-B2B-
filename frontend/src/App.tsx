@@ -67,7 +67,7 @@ interface Campaign {
   status: 'idle' | 'running' | 'completed';
   progress: number;
   currentStep: string;
-  searchCriteria?: { channel?: 'email' | 'whatsapp' | 'telegram' };
+  searchCriteria?: { channel?: 'email' | 'whatsapp' | 'telegram' | 'sms' };
   customInstructions?: string;
 }
 
@@ -213,12 +213,24 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const handleScheduleMeeting = (e: React.FormEvent) => {
+  const handleScheduleMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scheduleLead) return;
+    
+    // Optimistic update
     setLeads(prev => prev.map(l => l.id === scheduleLead.id ? { ...l, status: 'booked' } : l));
+    const leadName = scheduleLead.contactName;
+    const leadId = scheduleLead.id;
     setScheduleLead(null);
-    alert(`Reunião agendada com sucesso com ${scheduleLead.contactName}!`);
+    
+    try {
+      const response = await fetch(`${API_BASE}/leads/${leadId}/book`, { method: 'POST' });
+      if (response.ok) {
+        alert(`Reunião agendada com sucesso com ${leadName}! O Webhook para o Vysify foi disparado.`);
+      }
+    } catch (e) {
+      console.error('Erro ao agendar reunião no servidor', e);
+    }
   };
 
   const [apiKeys, setApiKeys] = useState({
@@ -232,7 +244,11 @@ export default function App() {
     whatsappInstance: localStorage.getItem('scoutly_whatsapp_instance') || '',
     telegramToken: localStorage.getItem('scoutly_telegram_token') || '',
     telegramChatId: localStorage.getItem('scoutly_telegram_chat_id') || '',
-    linkedinCookie: localStorage.getItem('scoutly_linkedin_cookie') || ''
+    linkedinCookie: localStorage.getItem('scoutly_linkedin_cookie') || '',
+    twilioAccountSid: localStorage.getItem('scoutly_twilio_sid') || '',
+    twilioAuthToken: localStorage.getItem('scoutly_twilio_token') || '',
+    twilioPhoneNumber: localStorage.getItem('scoutly_twilio_phone') || '',
+    vysifyWebhookUrl: localStorage.getItem('scoutly_webhook_url') || ''
   });
 
   const saveApiKeys = async (e: React.FormEvent) => {
@@ -244,6 +260,21 @@ export default function App() {
         body: JSON.stringify(apiKeys)
       });
       if (response.ok) {
+        localStorage.setItem('scoutly_openai_key', apiKeys.openai);
+        localStorage.setItem('scoutly_gemini_key', apiKeys.gemini);
+        localStorage.setItem('scoutly_anthropic_key', apiKeys.anthropic);
+        localStorage.setItem('scoutly_apollo_key', apiKeys.apollo);
+        localStorage.setItem('scoutly_hunter_key', apiKeys.hunter);
+        localStorage.setItem('scoutly_resend_key', apiKeys.resend);
+        localStorage.setItem('scoutly_whatsapp_token', apiKeys.whatsappToken);
+        localStorage.setItem('scoutly_whatsapp_instance', apiKeys.whatsappInstance);
+        localStorage.setItem('scoutly_telegram_token', apiKeys.telegramToken);
+        localStorage.setItem('scoutly_telegram_chat_id', apiKeys.telegramChatId);
+        localStorage.setItem('scoutly_linkedin_cookie', apiKeys.linkedinCookie);
+        localStorage.setItem('scoutly_twilio_sid', apiKeys.twilioAccountSid);
+        localStorage.setItem('scoutly_twilio_token', apiKeys.twilioAuthToken);
+        localStorage.setItem('scoutly_twilio_phone', apiKeys.twilioPhoneNumber);
+        localStorage.setItem('scoutly_webhook_url', apiKeys.vysifyWebhookUrl);
         alert('Chaves de API salvas no servidor!');
       } else {
         alert('Erro ao salvar no servidor.');
@@ -466,7 +497,11 @@ export default function App() {
             whatsappInstance: data.whatsapp_instance || '',
             telegramToken: data.telegram_token || '',
             telegramChatId: data.telegram_chat_id || '',
-            linkedinCookie: data.linkedin_cookie || ''
+            linkedinCookie: data.linkedin_cookie || '',
+            twilioAccountSid: data.twilio_account_sid || '',
+            twilioAuthToken: data.twilio_auth_token || '',
+            twilioPhoneNumber: data.twilio_phone_number || '',
+            vysifyWebhookUrl: data.vysify_webhook_url || ''
           });
         }
       })
@@ -1176,7 +1211,7 @@ export default function App() {
                             ...newCampaign, 
                             searchCriteria: {
                               ...newCampaign.searchCriteria!,
-                              channel: e.target.value as 'email' | 'whatsapp' | 'telegram'
+                              channel: e.target.value as 'email' | 'whatsapp' | 'telegram' | 'sms'
                             }
                           })}
                           className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
@@ -1184,6 +1219,7 @@ export default function App() {
                           <option value="email">E-mail Corporativo</option>
                           <option value="whatsapp">WhatsApp (B2B)</option>
                           <option value="telegram">Telegram Direct</option>
+                          <option value="sms">SMS (Twilio - EUA)</option>
                         </select>
                       </div>
                     </div>
@@ -1837,6 +1873,62 @@ export default function App() {
                         className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-4">📱 SMS (Twilio) - Mercado EUA</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Twilio Account SID</label>
+                        <input 
+                          type="password" 
+                          value={apiKeys.twilioAccountSid}
+                          onChange={e => setApiKeys({...apiKeys, twilioAccountSid: e.target.value})}
+                          placeholder="AC..."
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Twilio Auth Token</label>
+                        <input 
+                          type="password" 
+                          value={apiKeys.twilioAuthToken}
+                          onChange={e => setApiKeys({...apiKeys, twilioAuthToken: e.target.value})}
+                          placeholder="Auth Token..."
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Número Twilio (Twilio Phone Number)</label>
+                      <input 
+                        type="text" 
+                        value={apiKeys.twilioPhoneNumber}
+                        onChange={e => setApiKeys({...apiKeys, twilioPhoneNumber: e.target.value})}
+                        placeholder="+1234567890"
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-4">🔗 Transferência de Leads (Webhook)</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Webhook de Destino (CRM Vysify)</label>
+                      <p className="text-[10px] text-muted-foreground mb-2">Para onde os dados do lead serão enviados ao clicar em "Agendar Reunião".</p>
+                      <input 
+                        type="text" 
+                        value={apiKeys.vysifyWebhookUrl}
+                        onChange={e => setApiKeys({...apiKeys, vysifyWebhookUrl: e.target.value})}
+                        placeholder="https://..."
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
+                      />
+                    </div>
+
 
                     <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
                       <button 

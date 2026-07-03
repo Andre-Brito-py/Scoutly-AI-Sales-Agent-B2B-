@@ -106,9 +106,23 @@ async function initDatabase() {
                 whatsapp_instance TEXT,
                 telegram_token TEXT,
                 telegram_chat_id TEXT,
-                linkedin_cookie TEXT
+                linkedin_cookie TEXT,
+                twilio_account_sid TEXT,
+                twilio_auth_token TEXT,
+                twilio_phone_number TEXT,
+                vysify_webhook_url TEXT
             )
         `);
+
+        // Safely add columns if they don't exist (for existing deployments)
+        try {
+            await client.query(`ALTER TABLE api_keys ADD COLUMN twilio_account_sid TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN twilio_auth_token TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN twilio_phone_number TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN vysify_webhook_url TEXT`);
+        } catch (e) {
+            // Columns might already exist, ignore error
+        }
 
         // Tabela de Memória & IA (Insights Retidos)
         await client.query(`

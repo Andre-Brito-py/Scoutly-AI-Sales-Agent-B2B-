@@ -5,7 +5,7 @@ const CompanyIntelligenceAgent = require('./agents/CompanyIntelligenceAgent');
 const PainFinderAgent = require('./agents/PainFinderAgent');
 const ScoringAgent = require('./agents/ScoringAgent');
 const CopywriterAgent = require('./agents/CopywriterAgent');
-const { sendTelegramNotification } = require('./outreach');
+const { sendTelegramNotification, sendTwilioSMS } = require('./outreach');
 
 // Estado em memória das campanhas rodando
 const activeCampaigns = {};
@@ -121,19 +121,31 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
             if(sent) console.log(`[Engine] Alerta de Lead enviado ao Telegram do Usuário.`);
         }
 
-        // --- 2. Disparo Externo para o Cliente (Email / WhatsApp / Telegram) ---
+        // --- 2. Disparo Externo para o Cliente (Email / WhatsApp / Telegram / SMS) ---
         const channel = searchCriteria.channel || 'email';
         let recipient = formattedLead.email;
         if (channel === 'whatsapp') recipient = formattedLead.phone || 'Sem Telefone';
         if (channel === 'telegram') recipient = formattedLead.social || 'Sem Usuário Telegram';
+        if (channel === 'sms') recipient = formattedLead.phone || 'Sem Telefone';
+
+        let status = 'sent';
+        let errorMessage = null;
+
+        if (channel === 'sms' && apiKeys?.twilio_account_sid && apiKeys?.twilio_auth_token && apiKeys?.twilio_phone_number) {
+            const sent = await sendTwilioSMS(apiKeys.twilio_account_sid, apiKeys.twilio_auth_token, apiKeys.twilio_phone_number, recipient, personalizedMessage);
+            if (!sent) {
+                status = 'failed';
+                errorMessage = 'Twilio SMS falhou';
+            }
+        }
 
         db.run(
-            `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, sent_at)
-             VALUES ($1, $2, $3, $4, $5, $6, 'sent', $7)`,
-            ['log_' + Date.now(), formattedLead.id, campaignId, channel, recipient, personalizedMessage, new Date().toISOString()]
+            `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            ['log_' + Date.now(), formattedLead.id, campaignId, channel, recipient, personalizedMessage, status, errorMessage, new Date().toISOString()]
         );
-        db.run(`UPDATE leads SET status = 'sent' WHERE id = $1`, [formattedLead.id]);
-        console.log(`[Engine] Disparo efetuado com sucesso via ${channel} para ${recipient}`);
+        db.run(`UPDATE leads SET status = $1 WHERE id = $2`, [status, formattedLead.id]);
+        console.log(`[Engine] Disparo via ${channel} para ${recipient} (Status: ${status})`);
     } else {
         console.log(`[Engine] Lead ${formattedLead.companyName} Reprovado (Score ${score}). Descartado.`);
         db.run(`UPDATE leads SET status = 'lost' WHERE id = $1`, [formattedLead.id]);

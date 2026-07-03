@@ -113,6 +113,46 @@ app.post('/api/send', async (req, res) => {
     }
 });
 
+app.post('/api/leads/:id/book', (req, res) => {
+    const { id } = req.params;
+    
+    // 1. Atualiza status no banco
+    db.run(`UPDATE leads SET status = 'booked' WHERE id = $1`, [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // 2. Busca dados do lead para enviar o webhook
+        db.get('SELECT * FROM leads WHERE id = $1', [id], (err, lead) => {
+            if (err || !lead) return res.json({ success: true, webhook_sent: false, reason: 'Lead not found for webhook' });
+            
+            // 3. Busca a URL do Webhook no banco
+            db.get('SELECT vysify_webhook_url FROM api_keys LIMIT 1', [], async (err, keys) => {
+                if (err || !keys || !keys.vysify_webhook_url) {
+                    return res.json({ success: true, webhook_sent: false, reason: 'Webhook URL not configured' });
+                }
+                
+                // 4. Dispara o Webhook para o Vysify
+                try {
+                    console.log(`[Webhook] Enviando lead ${lead.companyName} para Vysify...`);
+                    const response = await fetch(keys.vysify_webhook_url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            source: 'scoutly',
+                            event: 'meeting_booked',
+                            lead: lead
+                        })
+                    });
+                    console.log(`[Webhook] Resposta do Vysify: ${response.status}`);
+                    res.json({ success: true, webhook_sent: true });
+                } catch (webhookErr) {
+                    console.error(`[Webhook] Erro ao enviar para Vysify:`, webhookErr.message);
+                    res.json({ success: true, webhook_sent: false, reason: 'Webhook request failed' });
+                }
+            });
+        });
+    });
+});
+
 // --- Rota de Perfil da Empresa ---
 app.get('/api/profile', (req, res) => {
     db.get('SELECT * FROM tenant_profiles LIMIT 1', [], (err, row) => {
@@ -241,10 +281,10 @@ app.get('/api/keys', (req, res) => {
 });
 
 app.post('/api/keys', (req, res) => {
-    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie } = req.body;
+    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl } = req.body;
     db.run(
-        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie)
-         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url)
+         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          ON CONFLICT(id) DO UPDATE SET 
             openai=excluded.openai,
             gemini=excluded.gemini,
@@ -256,7 +296,11 @@ app.post('/api/keys', (req, res) => {
             whatsapp_instance=excluded.whatsapp_instance,
             telegram_token=excluded.telegram_token,
             telegram_chat_id=excluded.telegram_chat_id,
-            linkedin_cookie=excluded.linkedin_cookie`,
+            linkedin_cookie=excluded.linkedin_cookie,
+            twilio_account_sid=excluded.twilio_account_sid,
+            twilio_auth_token=excluded.twilio_auth_token,
+            twilio_phone_number=excluded.twilio_phone_number,
+            vysify_webhook_url=excluded.vysify_webhook_url`,
         [
             openai || null, 
             gemini || null, 
@@ -268,7 +312,11 @@ app.post('/api/keys', (req, res) => {
             whatsappInstance || null, 
             telegramToken || null, 
             telegramChatId || null, 
-            linkedinCookie || null
+            linkedinCookie || null,
+            twilioAccountSid || null,
+            twilioAuthToken || null,
+            twilioPhoneNumber || null,
+            vysifyWebhookUrl || null
         ],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
