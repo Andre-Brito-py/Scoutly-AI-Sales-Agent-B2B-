@@ -159,6 +159,43 @@ app.post('/api/leads/:id/book', (req, res) => {
     });
 });
 
+app.post('/api/webhooks/vysify-feedback', async (req, res) => {
+    // Expected Payload: { status: 'won', lead: { companyName, contactName, email, phone, personalizedMessage, preferredChannel, segment } }
+    const { status, lead } = req.body;
+    
+    if (status !== 'won' || !lead || !lead.personalizedMessage) {
+        return res.json({ success: true, reason: 'Ignorado. Status não é won ou dados ausentes.' });
+    }
+
+    try {
+        console.log(`[Webhook Feedback] Negócio Fechado no Vysify! Extraindo insight para ${lead.companyName}...`);
+        
+        // Fetch OpenAI key
+        db.get('SELECT openai FROM api_keys LIMIT 1', [], async (err, keys) => {
+            const memoryAgent = new MemoryAgent(keys ? keys.openai : null);
+            const segment = lead.segment || 'Geral';
+            const channel = lead.preferredChannel || 'email';
+            
+            // Extract the golden rule
+            const insight = await memoryAgent.extractInsight(lead.companyName, segment, channel, lead.personalizedMessage);
+            
+            console.log(`[MemoryAgent] Novo Insight: ${insight}`);
+            
+            // Save to database
+            const insightId = 'ins_' + Date.now();
+            db.run(
+                `INSERT INTO ai_memory (id, type, content, context, created_at) VALUES ($1, 'insight', $2, $3, $4)`,
+                [insightId, insight, `Lead: ${lead.companyName} | Canal: ${channel}`, new Date().toISOString()]
+            );
+            
+            res.json({ success: true, insight_extracted: true });
+        });
+    } catch (e) {
+        console.error(`[Webhook Feedback] Erro:`, e.message);
+        res.status(500).json({ error: 'Erro ao processar feedback' });
+    }
+});
+
 // --- Rota de Perfil da Empresa ---
 app.get('/api/profile', (req, res) => {
     db.get('SELECT * FROM tenant_profiles LIMIT 1', [], (err, row) => {

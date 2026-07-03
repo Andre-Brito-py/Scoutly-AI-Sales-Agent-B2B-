@@ -9,21 +9,22 @@ class MemoryAgent {
     /**
      * Analisa a mensagem enviada que resultou em sucesso e gera um "Insight" ou regra retida.
      */
-    async extractInsight(leadName, segment, successfulMessage) {
+    async extractInsight(leadName, segment, channel, successfulMessage) {
         if (!this.apiKey) {
-            return `[MOCK] Insight retido: Abordagem curta e direta funciona bem para o segmento ${segment}.`;
+            return `[MOCK] Insight retido: Abordagem curta via ${channel} funciona bem para o segmento ${segment}.`;
         }
 
         const prompt = `Você é o Memory Agent do Scoutly (um CRM Inteligente).
-        Nós acabamos de fechar uma reunião com o lead "${leadName}" (Segmento: ${segment}).
-        O e-mail enviado que gerou esse sucesso foi o seguinte:
+        Nós acabamos de FECHAR UMA VENDA com o lead "${leadName}" (Segmento: ${segment}).
+        O canal utilizado foi: ${channel}.
+        A mensagem de prospecção original enviada que engajou esse lead foi:
         "${successfulMessage}"
 
-        Sua tarefa é extrair UMA "Regra de Ouro" (Insight de Copywriting) que explica por que esse e-mail funcionou, para que possamos instruir a IA a repetir esse estilo no futuro.
-        Deve ser uma instrução direta e genérica sobre o estilo, gatilho, ou CTA. (Máximo 150 caracteres).
+        Sua tarefa é extrair UMA "Regra de Ouro" (Insight de Copywriting/Estratégia) que explica por que essa mensagem funcionou, para que possamos instruir a IA a repetir esse estilo no futuro.
+        Deve ser uma instrução direta e genérica sobre o estilo, gatilho, dor abordada ou CTA. (Máximo 200 caracteres).
         
-        Exemplo: "Fazer uma pergunta sobre o gargalo no final do e-mail converte 2x mais rápido."
-        Exemplo: "Usar o nome da empresa do lead logo na primeira frase gera mais identificação."
+        Exemplo: "Para agências, focar na dor de retenção na primeira frase via WhatsApp converte bem."
+        Exemplo: "Usar o nome da empresa e ir direto ao ponto sobre custos via SMS aumenta a conversão."
         
         Responda APENAS com a Regra de Ouro.`;
 
