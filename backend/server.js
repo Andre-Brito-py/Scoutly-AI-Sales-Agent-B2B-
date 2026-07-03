@@ -124,30 +124,36 @@ app.post('/api/leads/:id/book', (req, res) => {
         db.get('SELECT * FROM leads WHERE id = $1', [id], (err, lead) => {
             if (err || !lead) return res.json({ success: true, webhook_sent: false, reason: 'Lead not found for webhook' });
             
-            // 3. Busca a URL do Webhook no banco
-            db.get('SELECT vysify_webhook_url FROM api_keys LIMIT 1', [], async (err, keys) => {
-                if (err || !keys || !keys.vysify_webhook_url) {
-                    return res.json({ success: true, webhook_sent: false, reason: 'Webhook URL not configured' });
-                }
+            // 2.5 Busca o canal de comunicação preferido no outreach_logs
+            db.get('SELECT channel FROM outreach_logs WHERE lead_id = $1 ORDER BY sent_at DESC LIMIT 1', [id], (err, log) => {
+                const preferredChannel = log && log.channel ? log.channel : 'email';
                 
-                // 4. Dispara o Webhook para o Vysify
-                try {
-                    console.log(`[Webhook] Enviando lead ${lead.companyName} para Vysify...`);
-                    const response = await fetch(keys.vysify_webhook_url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            source: 'scoutly',
-                            event: 'meeting_booked',
-                            lead: lead
-                        })
-                    });
-                    console.log(`[Webhook] Resposta do Vysify: ${response.status}`);
-                    res.json({ success: true, webhook_sent: true });
-                } catch (webhookErr) {
-                    console.error(`[Webhook] Erro ao enviar para Vysify:`, webhookErr.message);
-                    res.json({ success: true, webhook_sent: false, reason: 'Webhook request failed' });
-                }
+                // 3. Busca a URL do Webhook no banco
+                db.get('SELECT vysify_webhook_url FROM api_keys LIMIT 1', [], async (err, keys) => {
+                    if (err || !keys || !keys.vysify_webhook_url) {
+                        return res.json({ success: true, webhook_sent: false, reason: 'Webhook URL not configured' });
+                    }
+                    
+                    // 4. Dispara o Webhook para o Vysify
+                    try {
+                        console.log(`[Webhook] Enviando lead ${lead.companyName} para Vysify (Canal: ${preferredChannel})...`);
+                        const response = await fetch(keys.vysify_webhook_url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                source: 'scoutly',
+                                event: 'meeting_booked',
+                                preferredChannel: preferredChannel,
+                                lead: lead
+                            })
+                        });
+                        console.log(`[Webhook] Resposta do Vysify: ${response.status}`);
+                        res.json({ success: true, webhook_sent: true });
+                    } catch (webhookErr) {
+                        console.error(`[Webhook] Erro ao enviar para Vysify:`, webhookErr.message);
+                        res.json({ success: true, webhook_sent: false, reason: 'Webhook request failed' });
+                    }
+                });
             });
         });
     });
