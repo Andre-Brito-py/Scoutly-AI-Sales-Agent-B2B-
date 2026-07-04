@@ -1929,6 +1929,23 @@ export default function App() {
                       />
                     </div>
 
+                    <div className="mt-6 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+                      <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">Sua URL de Webhook (Para colar no Vysify)</label>
+                      <p className="text-[10px] text-indigo-700/80 mb-2 font-medium">Copie este endereço e cole no Vysify para ativar o Feedback Loop de Vendas Fechadas.</p>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="text" 
+                          readOnly
+                          value={`${API_BASE}/webhooks/vysify-feedback`}
+                          className="w-full bg-white border border-indigo-200 rounded-lg px-4 py-2 text-sm text-indigo-900 focus:outline-none cursor-copy font-mono text-[11px]" 
+                          onClick={(e) => {
+                            (e.target as HTMLInputElement).select();
+                            navigator.clipboard.writeText((e.target as HTMLInputElement).value);
+                          }}
+                        />
+                      </div>
+                    </div>
+
 
                     <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
                       <button 
