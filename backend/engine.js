@@ -5,7 +5,7 @@ const CompanyIntelligenceAgent = require('./agents/CompanyIntelligenceAgent');
 const PainFinderAgent = require('./agents/PainFinderAgent');
 const ScoringAgent = require('./agents/ScoringAgent');
 const CopywriterAgent = require('./agents/CopywriterAgent');
-const { sendTelegramNotification, sendTwilioSMS } = require('./outreach');
+const { sendTelegramNotification, sendTwilioSMS, sendEmail, sendWhatsApp } = require('./outreach');
 
 // Estado em memória das campanhas rodando
 const activeCampaigns = {};
@@ -136,6 +136,25 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
             if (!sent) {
                 status = 'failed';
                 errorMessage = 'Twilio SMS falhou';
+            }
+        } else if (channel === 'email' && apiKeys?.resend) {
+            try {
+                // Configura o Resend API key na variável de ambiente localmente para a função ler
+                process.env.RESEND_API_KEY = apiKeys.resend;
+                await sendEmail(recipient, `Oportunidade para a ${formattedLead.companyName}`, personalizedMessage.replace(/\n/g, '<br>'));
+            } catch (err) {
+                status = 'failed';
+                errorMessage = 'Falha ao enviar Email via Resend';
+            }
+        } else if (channel === 'whatsapp' && apiKeys?.whatsapp_token) {
+            try {
+                // Passa as credenciais via env temporário
+                process.env.WHATSAPP_API_TOKEN = apiKeys.whatsapp_token;
+                if (apiKeys.whatsapp_instance) process.env.WHATSAPP_INSTANCE = apiKeys.whatsapp_instance;
+                await sendWhatsApp(recipient, personalizedMessage);
+            } catch (err) {
+                status = 'failed';
+                errorMessage = 'Falha ao enviar WhatsApp';
             }
         }
 
