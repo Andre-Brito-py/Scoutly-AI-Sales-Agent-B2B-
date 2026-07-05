@@ -175,7 +175,15 @@ async function runCampaign(campaignId, searchCriteria) {
     if (!activeCampaigns[campaignId]) return;
     
     console.log(`[Engine] Campanha ${campaignId} ACORDOU. Buscando leads...`);
-    const provider = new GoogleMapsProvider();
+    
+    let apiKeys = null;
+    try {
+        apiKeys = await new Promise((res, rej) => db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => err ? rej(err) : res(row)));
+    } catch (e) {
+        console.warn('[Engine] Erro ao carregar chaves:', e.message);
+    }
+
+    const provider = new GoogleMapsProvider(apiKeys?.google_maps_api_key);
     
     // Acha os leads
     const rawLeads = await provider.searchLeads(searchCriteria);

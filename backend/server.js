@@ -324,10 +324,10 @@ app.get('/api/keys', (req, res) => {
 });
 
 app.post('/api/keys', (req, res) => {
-    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl } = req.body;
+    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl, googleMapsApiKey } = req.body;
     db.run(
-        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url)
-         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url, google_maps_api_key)
+         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
          ON CONFLICT(id) DO UPDATE SET 
             openai=excluded.openai,
             gemini=excluded.gemini,
@@ -343,7 +343,8 @@ app.post('/api/keys', (req, res) => {
             twilio_account_sid=excluded.twilio_account_sid,
             twilio_auth_token=excluded.twilio_auth_token,
             twilio_phone_number=excluded.twilio_phone_number,
-            vysify_webhook_url=excluded.vysify_webhook_url`,
+            vysify_webhook_url=excluded.vysify_webhook_url,
+            google_maps_api_key=excluded.google_maps_api_key`,
         [
             openai || null, 
             gemini || null, 
@@ -359,7 +360,8 @@ app.post('/api/keys', (req, res) => {
             twilioAccountSid || null,
             twilioAuthToken || null,
             twilioPhoneNumber || null,
-            vysifyWebhookUrl || null
+            vysifyWebhookUrl || null,
+            googleMapsApiKey || null
         ],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
