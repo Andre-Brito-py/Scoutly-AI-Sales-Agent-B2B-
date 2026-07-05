@@ -248,7 +248,8 @@ export default function App() {
     twilioAccountSid: localStorage.getItem('scoutly_twilio_sid') || '',
     twilioAuthToken: localStorage.getItem('scoutly_twilio_token') || '',
     twilioPhoneNumber: localStorage.getItem('scoutly_twilio_phone') || '',
-    vysifyWebhookUrl: localStorage.getItem('scoutly_webhook_url') || ''
+    vysifyWebhookUrl: localStorage.getItem('scoutly_webhook_url') || '',
+    googleMapsApiKey: localStorage.getItem('scoutly_google_maps_key') || ''
   });
 
   const saveApiKeys = async (e: React.FormEvent) => {
@@ -275,6 +276,7 @@ export default function App() {
         localStorage.setItem('scoutly_twilio_token', apiKeys.twilioAuthToken);
         localStorage.setItem('scoutly_twilio_phone', apiKeys.twilioPhoneNumber);
         localStorage.setItem('scoutly_webhook_url', apiKeys.vysifyWebhookUrl);
+        localStorage.setItem('scoutly_google_maps_key', apiKeys.googleMapsApiKey);
         alert('Chaves de API salvas no servidor!');
       } else {
         alert('Erro ao salvar no servidor.');
@@ -501,7 +503,8 @@ export default function App() {
             twilioAccountSid: data.twilio_account_sid || '',
             twilioAuthToken: data.twilio_auth_token || '',
             twilioPhoneNumber: data.twilio_phone_number || '',
-            vysifyWebhookUrl: data.vysify_webhook_url || ''
+            vysifyWebhookUrl: data.vysify_webhook_url || '',
+            googleMapsApiKey: data.google_maps_api_key || ''
           });
         }
       })
@@ -1781,6 +1784,18 @@ export default function App() {
                         value={apiKeys.apollo}
                         onChange={e => setApiKeys({...apiKeys, apollo: e.target.value})}
                         placeholder="apikeys_..."
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Google Maps API Key (Busca de Negócios Locais)</label>
+                      <p className="text-[10px] text-muted-foreground mb-2">Chave da Google Places API (GCP) para extrair nome, site e telefone do Google Maps.</p>
+                      <input 
+                        type="password" 
+                        value={apiKeys.googleMapsApiKey}
+                        onChange={e => setApiKeys({...apiKeys, googleMapsApiKey: e.target.value})}
+                        placeholder="AIzaSy..."
                         className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
