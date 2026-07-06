@@ -128,18 +128,22 @@ app.post('/api/leads/:id/book', (req, res) => {
             db.get('SELECT channel FROM outreach_logs WHERE lead_id = $1 ORDER BY sent_at DESC LIMIT 1', [id], (err, log) => {
                 const preferredChannel = log && log.channel ? log.channel : 'email';
                 
-                // 3. Busca a URL do Webhook no banco
-                db.get('SELECT vysify_webhook_url FROM api_keys LIMIT 1', [], async (err, keys) => {
+                // 3. Busca a URL do Webhook e a API Key no banco
+                db.get('SELECT vysify_webhook_url, vysify_api_key FROM api_keys LIMIT 1', [], async (err, keys) => {
                     if (err || !keys || !keys.vysify_webhook_url) {
                         return res.json({ success: true, webhook_sent: false, reason: 'Webhook URL not configured' });
                     }
                     
-                    // 4. Dispara o Webhook para o Vysify
+                    // 4. Dispara o Webhook para o Vysify com autenticação
                     try {
                         console.log(`[Webhook] Enviando lead ${lead.companyName} para Vysify (Canal: ${preferredChannel})...`);
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (keys.vysify_api_key) {
+                            headers['Authorization'] = `Bearer ${keys.vysify_api_key}`;
+                        }
                         const response = await fetch(keys.vysify_webhook_url, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers,
                             body: JSON.stringify({
                                 source: 'scoutly',
                                 event: 'meeting_booked',
@@ -324,10 +328,10 @@ app.get('/api/keys', (req, res) => {
 });
 
 app.post('/api/keys', (req, res) => {
-    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl, googleMapsApiKey } = req.body;
+    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl, vysifyApiKey, googleMapsApiKey } = req.body;
     db.run(
-        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url, google_maps_api_key)
-         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url, vysify_api_key, google_maps_api_key)
+         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          ON CONFLICT(id) DO UPDATE SET 
             openai=excluded.openai,
             gemini=excluded.gemini,
@@ -344,6 +348,7 @@ app.post('/api/keys', (req, res) => {
             twilio_auth_token=excluded.twilio_auth_token,
             twilio_phone_number=excluded.twilio_phone_number,
             vysify_webhook_url=excluded.vysify_webhook_url,
+            vysify_api_key=excluded.vysify_api_key,
             google_maps_api_key=excluded.google_maps_api_key`,
         [
             openai || null, 
@@ -361,6 +366,7 @@ app.post('/api/keys', (req, res) => {
             twilioAuthToken || null,
             twilioPhoneNumber || null,
             vysifyWebhookUrl || null,
+            vysifyApiKey || null,
             googleMapsApiKey || null
         ],
         function(err) {
