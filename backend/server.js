@@ -328,10 +328,10 @@ app.get('/api/keys', (req, res) => {
 });
 
 app.post('/api/keys', (req, res) => {
-    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl, vysifyApiKey, googleMapsApiKey } = req.body;
+    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl, vysifyApiKey, evolutionApiUrl, evolutionApiKey, evolutionInstance, googleMapsApiKey } = req.body;
     db.run(
-        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url, vysify_api_key, google_maps_api_key)
-         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url, vysify_api_key, evolution_api_url, evolution_api_key, evolution_instance, google_maps_api_key)
+         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
          ON CONFLICT(id) DO UPDATE SET 
             openai=excluded.openai,
             gemini=excluded.gemini,
@@ -349,6 +349,9 @@ app.post('/api/keys', (req, res) => {
             twilio_phone_number=excluded.twilio_phone_number,
             vysify_webhook_url=excluded.vysify_webhook_url,
             vysify_api_key=excluded.vysify_api_key,
+            evolution_api_url=excluded.evolution_api_url,
+            evolution_api_key=excluded.evolution_api_key,
+            evolution_instance=excluded.evolution_instance,
             google_maps_api_key=excluded.google_maps_api_key`,
         [
             openai || null, 
@@ -367,6 +370,9 @@ app.post('/api/keys', (req, res) => {
             twilioPhoneNumber || null,
             vysifyWebhookUrl || null,
             vysifyApiKey || null,
+            evolutionApiUrl || null,
+            evolutionApiKey || null,
+            evolutionInstance || null,
             googleMapsApiKey || null
         ],
         function(err) {

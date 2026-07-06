@@ -146,12 +146,13 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
                 status = 'failed';
                 errorMessage = 'Falha ao enviar Email via Resend';
             }
-        } else if (channel === 'whatsapp' && apiKeys?.whatsapp_token) {
+        } else if (channel === 'whatsapp' && (apiKeys?.evolution_api_url || apiKeys?.whatsapp_token)) {
             try {
-                // Passa as credenciais via env temporário
-                process.env.WHATSAPP_API_TOKEN = apiKeys.whatsapp_token;
-                if (apiKeys.whatsapp_instance) process.env.WHATSAPP_INSTANCE = apiKeys.whatsapp_instance;
-                await sendWhatsApp(recipient, personalizedMessage);
+                await sendWhatsApp(recipient, personalizedMessage, {
+                    evolutionUrl: apiKeys.evolution_api_url,
+                    evolutionKey: apiKeys.evolution_api_key,
+                    evolutionInstance: apiKeys.evolution_instance
+                });
             } catch (err) {
                 status = 'failed';
                 errorMessage = 'Falha ao enviar WhatsApp';

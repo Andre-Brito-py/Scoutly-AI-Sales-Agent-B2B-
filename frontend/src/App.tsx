@@ -242,6 +242,9 @@ export default function App() {
     resend: localStorage.getItem('scoutly_resend_key') || '',
     whatsappToken: localStorage.getItem('scoutly_whatsapp_token') || '',
     whatsappInstance: localStorage.getItem('scoutly_whatsapp_instance') || '',
+    evolutionApiUrl: localStorage.getItem('scoutly_evolution_url') || '',
+    evolutionApiKey: localStorage.getItem('scoutly_evolution_key') || '',
+    evolutionInstance: localStorage.getItem('scoutly_evolution_instance') || '',
     telegramToken: localStorage.getItem('scoutly_telegram_token') || '',
     telegramChatId: localStorage.getItem('scoutly_telegram_chat_id') || '',
     linkedinCookie: localStorage.getItem('scoutly_linkedin_cookie') || '',
@@ -270,6 +273,9 @@ export default function App() {
         localStorage.setItem('scoutly_resend_key', apiKeys.resend);
         localStorage.setItem('scoutly_whatsapp_token', apiKeys.whatsappToken);
         localStorage.setItem('scoutly_whatsapp_instance', apiKeys.whatsappInstance);
+        localStorage.setItem('scoutly_evolution_url', apiKeys.evolutionApiUrl);
+        localStorage.setItem('scoutly_evolution_key', apiKeys.evolutionApiKey);
+        localStorage.setItem('scoutly_evolution_instance', apiKeys.evolutionInstance);
         localStorage.setItem('scoutly_telegram_token', apiKeys.telegramToken);
         localStorage.setItem('scoutly_telegram_chat_id', apiKeys.telegramChatId);
         localStorage.setItem('scoutly_linkedin_cookie', apiKeys.linkedinCookie);
@@ -499,6 +505,9 @@ export default function App() {
             resend: data.resend || '',
             whatsappToken: data.whatsapp_token || '',
             whatsappInstance: data.whatsapp_instance || '',
+            evolutionApiUrl: data.evolution_api_url || '',
+            evolutionApiKey: data.evolution_api_key || '',
+            evolutionInstance: data.evolution_instance || '',
             telegramToken: data.telegram_token || '',
             telegramChatId: data.telegram_chat_id || '',
             linkedinCookie: data.linkedin_cookie || '',
@@ -1829,29 +1838,48 @@ export default function App() {
                       <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-4">💬 Mensageria Outbound</span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">WhatsApp Token (Z-API / Evolution)</label>
-                        <input 
-                          type="password" 
-                          value={apiKeys.whatsappToken}
-                          onChange={e => setApiKeys({...apiKeys, whatsappToken: e.target.value})}
-                          placeholder="Token da API..."
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
-                        />
+                    {/* WhatsApp via Evolution API (compartilhado com Vysify) */}
+                    <div className="p-4 bg-green-50/60 border border-green-200 rounded-xl">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-base">📱</span>
+                        <span className="text-xs font-black text-green-800 uppercase tracking-widest">WhatsApp — Evolution API</span>
+                        <span className="ml-auto text-[10px] bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full">Compartilhado com Vysify</span>
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">WhatsApp URL da Instância</label>
-                        <input 
-                          type="text" 
-                          value={apiKeys.whatsappInstance}
-                          onChange={e => setApiKeys({...apiKeys, whatsappInstance: e.target.value})}
-                          placeholder="https://api.evolution.com/v1"
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
-                        />
+                      <p className="text-[10px] text-green-700/80 mb-4 leading-relaxed">Cole aqui as mesmas credenciais configuradas no painel do <strong>Vysify (Super Admin → Evolution API)</strong>. O Scoutly enviará pelo mesmo número — as respostas chegam direto na Inbox do Vysify.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-bold text-green-900 uppercase tracking-wider mb-2">URL do Servidor Evolution API</label>
+                          <input
+                            type="text"
+                            value={apiKeys.evolutionApiUrl}
+                            onChange={e => setApiKeys({...apiKeys, evolutionApiUrl: e.target.value})}
+                            placeholder="https://evolution-api-production-xxxx.up.railway.app"
+                            className="w-full bg-white border border-green-200 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-green-500 transition placeholder:text-slate-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-green-900 uppercase tracking-wider mb-2">Global API Key</label>
+                          <input
+                            type="password"
+                            value={apiKeys.evolutionApiKey}
+                            onChange={e => setApiKeys({...apiKeys, evolutionApiKey: e.target.value})}
+                            placeholder="Chave global da Evolution API"
+                            className="w-full bg-white border border-green-200 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-green-500 transition placeholder:text-slate-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-green-900 uppercase tracking-wider mb-2">Nome da Instância</label>
+                          <input
+                            type="text"
+                            value={apiKeys.evolutionInstance}
+                            onChange={e => setApiKeys({...apiKeys, evolutionInstance: e.target.value})}
+                            placeholder="vysify-clxyz123abc"
+                            className="w-full bg-white border border-green-200 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-green-500 transition placeholder:text-slate-400"
+                          />
+                        </div>
                       </div>
                     </div>
+
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -1892,43 +1920,46 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100">
-                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-4">📱 SMS (Twilio) - Mercado EUA</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Twilio Account SID</label>
-                        <input 
-                          type="password" 
-                          value={apiKeys.twilioAccountSid}
-                          onChange={e => setApiKeys({...apiKeys, twilioAccountSid: e.target.value})}
-                          placeholder="AC..."
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
-                        />
+                    {/* SMS via Twilio (compartilhado com Vysify) */}
+                    <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-xl">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-base">💬</span>
+                        <span className="text-xs font-black text-blue-800 uppercase tracking-widest">SMS — Twilio</span>
+                        <span className="ml-auto text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">Compartilhado com Vysify</span>
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Twilio Auth Token</label>
-                        <input 
-                          type="password" 
-                          value={apiKeys.twilioAuthToken}
-                          onChange={e => setApiKeys({...apiKeys, twilioAuthToken: e.target.value})}
-                          placeholder="Auth Token..."
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
-                        />
+                      <p className="text-[10px] text-blue-700/80 mb-4 leading-relaxed">Cole aqui as mesmas credenciais configuradas no painel do <strong>Vysify (Super Admin → Twilio)</strong>. O Scoutly enviará SMS pelo mesmo número — as respostas chegam direto na Inbox do Vysify.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-blue-900 uppercase tracking-wider mb-2">Twilio Account SID</label>
+                          <input
+                            type="password"
+                            value={apiKeys.twilioAccountSid}
+                            onChange={e => setApiKeys({...apiKeys, twilioAccountSid: e.target.value})}
+                            placeholder="AC..."
+                            className="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-blue-500 transition placeholder:text-slate-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-blue-900 uppercase tracking-wider mb-2">Twilio Auth Token</label>
+                          <input
+                            type="password"
+                            value={apiKeys.twilioAuthToken}
+                            onChange={e => setApiKeys({...apiKeys, twilioAuthToken: e.target.value})}
+                            placeholder="Auth Token..."
+                            className="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-blue-500 transition placeholder:text-slate-400"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-bold text-blue-900 uppercase tracking-wider mb-2">Número Twilio</label>
+                          <input
+                            type="text"
+                            value={apiKeys.twilioPhoneNumber}
+                            onChange={e => setApiKeys({...apiKeys, twilioPhoneNumber: e.target.value})}
+                            placeholder="+1234567890"
+                            className="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-blue-500 transition placeholder:text-slate-400"
+                          />
+                        </div>
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Número Twilio (Twilio Phone Number)</label>
-                      <input 
-                        type="text" 
-                        value={apiKeys.twilioPhoneNumber}
-                        onChange={e => setApiKeys({...apiKeys, twilioPhoneNumber: e.target.value})}
-                        placeholder="+1234567890"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
-                      />
                     </div>
 
                     <div className="pt-4 border-t border-slate-100">

@@ -112,6 +112,9 @@ async function initDatabase() {
                 twilio_phone_number TEXT,
                 vysify_webhook_url TEXT,
                 vysify_api_key TEXT,
+                evolution_api_url TEXT,
+                evolution_api_key TEXT,
+                evolution_instance TEXT,
                 google_maps_api_key TEXT
             )
         `);
@@ -123,6 +126,9 @@ async function initDatabase() {
             await client.query(`ALTER TABLE api_keys ADD COLUMN twilio_phone_number TEXT`);
             await client.query(`ALTER TABLE api_keys ADD COLUMN vysify_webhook_url TEXT`);
             await client.query(`ALTER TABLE api_keys ADD COLUMN vysify_api_key TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_api_url TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_api_key TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_instance TEXT`);
             await client.query(`ALTER TABLE api_keys ADD COLUMN google_maps_api_key TEXT`);
         } catch (e) {
             // Columns might already exist, ignore error
