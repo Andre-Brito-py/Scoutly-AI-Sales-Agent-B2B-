@@ -27,39 +27,51 @@ async function sendEmail(to, subject, htmlContent) {
 }
 
 /**
- * Dispara uma mensagem de WhatsApp via API externa (Evolution API, Z-API, etc.)
+ * Envia mensagem de WhatsApp via Evolution API.
+ * Compartilha a mesma instância e número configurados no Vysify.
+ *
+ * Variáveis de ambiente necessárias (as mesmas do Vysify):
+ *   EVOLUTION_API_URL      → URL do servidor (ex: https://api.up.railway.app)
+ *   EVOLUTION_API_KEY      → Global API Key da Evolution
+ *   EVOLUTION_INSTANCE     → Nome da instância (ex: vysify-abc123)
  */
 async function sendWhatsApp(phone, messageContent) {
-    const token = process.env.WHATSAPP_API_TOKEN;
-    const instanceUrl = process.env.WHATSAPP_INSTANCE;
+    const evolutionUrl = process.env.EVOLUTION_API_URL;
+    const evolutionKey = process.env.EVOLUTION_API_KEY;
+    const evolutionInstance = process.env.EVOLUTION_INSTANCE;
 
-    if (!token || !instanceUrl) {
-        console.warn('Credenciais do WhatsApp não configuradas. Simulando envio para:', phone);
+    if (!evolutionUrl || !evolutionKey || !evolutionInstance) {
+        console.warn('[WhatsApp] Credenciais da Evolution API não configuradas. Simulando envio para:', phone);
         return { id: 'simulated_wpp_' + Date.now(), status: 'simulated' };
     }
 
+    // Normaliza o número para o formato internacional sem símbolos (ex: 5511999999999)
+    const normalizedPhone = String(phone).replace(/\D/g, '');
+
     try {
-        const response = await fetch(instanceUrl, {
+        const endpoint = `${evolutionUrl}/message/sendText/${evolutionInstance}`;
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'apikey': token,         // Padrão Evolution API
-                'Client-Token': token    // Padrão Z-API/Outros
+                'apikey': evolutionKey
             },
             body: JSON.stringify({
-                number: phone,
-                text: messageContent,    // Evolution API
-                message: messageContent  // Z-API alternative
+                number: normalizedPhone,
+                options: { delay: 1200, presence: 'composing' },
+                textMessage: { text: messageContent }
             })
         });
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error('[WhatsApp] Falha ao enviar:', errText);
-            throw new Error(`WhatsApp API devolveu erro ${response.status}`);
+            console.error('[WhatsApp] Evolution API erro:', errText);
+            throw new Error(`Evolution API devolveu status ${response.status}`);
         }
 
-        return await response.json();
+        const result = await response.json();
+        console.log(`[WhatsApp] Mensagem enviada para ${normalizedPhone}. Key:`, result?.key?.id || 'ok');
+        return result;
     } catch (error) {
         console.error('[WhatsApp] Erro na requisição:', error.message);
         throw error;
