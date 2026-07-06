@@ -249,6 +249,7 @@ export default function App() {
     twilioAuthToken: localStorage.getItem('scoutly_twilio_token') || '',
     twilioPhoneNumber: localStorage.getItem('scoutly_twilio_phone') || '',
     vysifyWebhookUrl: localStorage.getItem('scoutly_webhook_url') || '',
+    vysifyApiKey: localStorage.getItem('scoutly_vysify_api_key') || '',
     googleMapsApiKey: localStorage.getItem('scoutly_google_maps_key') || ''
   });
 
@@ -276,6 +277,7 @@ export default function App() {
         localStorage.setItem('scoutly_twilio_token', apiKeys.twilioAuthToken);
         localStorage.setItem('scoutly_twilio_phone', apiKeys.twilioPhoneNumber);
         localStorage.setItem('scoutly_webhook_url', apiKeys.vysifyWebhookUrl);
+        localStorage.setItem('scoutly_vysify_api_key', apiKeys.vysifyApiKey);
         localStorage.setItem('scoutly_google_maps_key', apiKeys.googleMapsApiKey);
         alert('Chaves de API salvas no servidor!');
       } else {
@@ -504,6 +506,7 @@ export default function App() {
             twilioAuthToken: data.twilio_auth_token || '',
             twilioPhoneNumber: data.twilio_phone_number || '',
             vysifyWebhookUrl: data.vysify_webhook_url || '',
+            vysifyApiKey: data.vysify_api_key || '',
             googleMapsApiKey: data.google_maps_api_key || ''
           });
         }
@@ -1940,6 +1943,18 @@ export default function App() {
                         value={apiKeys.vysifyWebhookUrl}
                         onChange={e => setApiKeys({...apiKeys, vysifyWebhookUrl: e.target.value})}
                         placeholder="https://..."
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">API Key do Vysify</label>
+                      <p className="text-[10px] text-muted-foreground mb-2">Chave de autenticação gerada no painel do Vysify (Configurações → API Keys). Necessária para o Scoutly poder enviar leads de forma segura.</p>
+                      <input 
+                        type="password" 
+                        value={apiKeys.vysifyApiKey}
+                        onChange={e => setApiKeys({...apiKeys, vysifyApiKey: e.target.value})}
+                        placeholder="nk_..."
                         className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>
