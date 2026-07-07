@@ -339,7 +339,7 @@ export default function App() {
     targetProducts: [],
     limitDaily: 50,
     frequency: 'immediate',
-    searchCriteria: { channel: 'email' },
+    searchCriteria: { channel: 'whatsapp' },
     customInstructions: ''
   });
 
@@ -793,7 +793,7 @@ export default function App() {
       targetProducts: [],
       limitDaily: 50,
       frequency: 'immediate',
-      searchCriteria: { channel: 'email' },
+      searchCriteria: { channel: 'whatsapp' },
       customInstructions: ''
     });
     setActiveTab('campaigns');
