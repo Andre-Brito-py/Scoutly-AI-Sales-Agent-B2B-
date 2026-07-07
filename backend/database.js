@@ -88,7 +88,10 @@ async function initDatabase() {
                 frequency TEXT,
                 status TEXT,
                 progress INTEGER,
-                current_step TEXT
+                current_step TEXT,
+                search_criteria TEXT,
+                channel TEXT,
+                last_run_at TEXT
             )
         `);
 
@@ -130,6 +133,15 @@ async function initDatabase() {
             await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_api_key TEXT`);
             await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_instance TEXT`);
             await client.query(`ALTER TABLE api_keys ADD COLUMN google_maps_api_key TEXT`);
+        } catch (e) {
+            // Columns might already exist, ignore error
+        }
+
+        // Safely add new columns to campaigns table
+        try {
+            await client.query(`ALTER TABLE campaigns ADD COLUMN search_criteria TEXT`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN channel TEXT`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN last_run_at TEXT`);
         } catch (e) {
             // Columns might already exist, ignore error
         }

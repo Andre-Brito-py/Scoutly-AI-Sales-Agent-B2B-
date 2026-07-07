@@ -384,22 +384,83 @@ app.post('/api/keys', (req, res) => {
 
 // --- Rotas do Motor Autônomo ---
 
-app.post('/api/campaigns/start', (req, res) => {
-    const { campaignId, frequency, searchCriteria } = req.body;
-    if (!campaignId || !frequency || !searchCriteria) {
-        return res.status(400).json({ error: 'Dados incompletos para iniciar campanha.' });
+/**
+ * POST /api/campaigns/start
+ * Ativado pelo frontend ao ligar uma campanha.
+ * Persiste search_criteria no banco e dispara imediatamente.
+ */
+app.post('/api/campaigns/start', async (req, res) => {
+    const { campaignId, searchCriteria } = req.body;
+    if (!campaignId || !searchCriteria) {
+        return res.status(400).json({ error: 'campaignId e searchCriteria são obrigatórios.' });
     }
-    const result = engine.startCampaign(campaignId, frequency, searchCriteria);
-    if (result.error) return res.status(400).json(result);
-    res.json(result);
+    try {
+        const result = await engine.startCampaign(campaignId, searchCriteria);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/campaigns/stop', (req, res) => {
+/**
+ * POST /api/campaigns/stop
+ * Pausa a campanha alterando o status no banco.
+ */
+app.post('/api/campaigns/stop', async (req, res) => {
     const { campaignId } = req.body;
-    const result = engine.stopCampaign(campaignId);
-    if (result.error) return res.status(400).json(result);
-    res.json(result);
+    if (!campaignId) return res.status(400).json({ error: 'campaignId obrigatório.' });
+    try {
+        const result = await engine.stopCampaign(campaignId);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
+/**
+ * GET /api/campaigns/trigger-scheduled
+ * ─────────────────────────────────────────────────────────────────
+ * Este endpoint é chamado pelo cron-jobs.org uma vez por dia.
+ * Ele lê todas as campanhas com status='active' do banco e as executa.
+ *
+ * Como configurar no cron-jobs.org:
+ *   URL: https://SEU_BACKEND.up.railway.app/api/campaigns/trigger-scheduled
+ *   Método: GET
+ *   Horário: Escolha o horário desejado (ex: 09:00 todos os dias)
+ *   Auth: Adicione o header  X-Cron-Secret: SEU_CRON_SECRET
+ * ─────────────────────────────────────────────────────────────────
+ */
+app.get('/api/campaigns/trigger-scheduled', async (req, res) => {
+    // Validação básica por segredo (configure CRON_SECRET nas variáveis de ambiente)
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret) {
+        const providedSecret = req.headers['x-cron-secret'] || req.query.secret;
+        if (providedSecret !== cronSecret) {
+            console.warn('[Trigger] Tentativa de acesso não autorizada ao trigger de cron.');
+            return res.status(401).json({ error: 'UNAUTHORIZED' });
+        }
+    }
+
+    try {
+        const result = await engine.runScheduledCampaigns();
+        console.log(`[Trigger] Cron executado. Campanhas disparadas: ${result.triggered}`);
+        res.json({ success: true, ...result, triggeredAt: new Date().toISOString() });
+    } catch (err) {
+        console.error('[Trigger] Erro ao executar campanhas agendadas:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/campaigns/status
+ * Retorna status de execução em memória (campanhas rodando agora)
+ */
+app.get('/api/campaigns/status', (req, res) => {
+    res.json({
+        runningNow: [...engine.runningCampaigns]
+    });
+});
+
 
 // --- Rotas de Memória & IA ---
 const MemoryAgent = require('./agents/MemoryAgent');

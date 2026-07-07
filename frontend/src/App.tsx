@@ -564,29 +564,27 @@ export default function App() {
     setCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, status: 'running', progress: 5 } : c));
     setRunningCampaignId(campaignId);
 
-    // Call Node.js Backend Engine
+    // Chama o backend — persiste search_criteria no banco e dispara imediatamente
     try {
-      await fetch(`${API_BASE}/campaigns/start`, { 
+      await fetch(`${API_BASE}/campaigns/start`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           campaignId: campaignId,
-          frequency: campToStart.frequency,
           searchCriteria: {
             segment: campToStart.segment,
             countries: campToStart.prospectingArea.countries,
             states: campToStart.prospectingArea.states,
             cities: campToStart.prospectingArea.cities,
             targetProducts: campToStart.targetProducts,
-            channel: campToStart.searchCriteria?.channel || 'email',
+            channel: campToStart.searchCriteria?.channel || 'whatsapp',
+            language: campToStart.language || 'Português',
             customInstructions: campToStart.customInstructions || ''
           }
         })
       });
     } catch {
-      console.log('Running campaign in frontend demo fallback mode');
+      console.log('Backend indisponível — rodando em modo demo.');
     }
   };
 
@@ -1220,10 +1218,10 @@ export default function App() {
 
                       <div>
                         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Canal Principal</label>
-                        <select 
-                          value={newCampaign.searchCriteria?.channel || 'email'}
+                        <select
+                          value={newCampaign.searchCriteria?.channel || 'whatsapp'}
                           onChange={e => setNewCampaign({
-                            ...newCampaign, 
+                            ...newCampaign,
                             searchCriteria: {
                               ...newCampaign.searchCriteria!,
                               channel: e.target.value as 'email' | 'whatsapp' | 'telegram' | 'sms'
@@ -1231,11 +1229,16 @@ export default function App() {
                           })}
                           className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
                         >
-                          <option value="email">E-mail Corporativo</option>
-                          <option value="whatsapp">WhatsApp (B2B)</option>
-                          <option value="telegram">Telegram Direct</option>
-                          <option value="sms">SMS (Twilio - EUA)</option>
+                          <option value="whatsapp">📱 WhatsApp (Recomendado)</option>
+                          <option value="sms">💬 SMS via Twilio</option>
+                          <option value="telegram">✈️ Telegram Direct</option>
+                          <option value="email">⚠️ E-mail (e-mails são deduzidos, pode haver bounce)</option>
                         </select>
+                        {(newCampaign.searchCriteria?.channel === 'email' || !newCampaign.searchCriteria?.channel) && (
+                          <p className="mt-1.5 text-[10px] text-amber-600 font-medium flex items-center gap-1">
+                            <span>⚠️</span> O e-mail é deduzido pelo domínio do site (ex: contato@empresa.com). Pode haver bounces. Prefira WhatsApp ou SMS para maior entrega.
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -1284,17 +1287,17 @@ export default function App() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Limite Diário</label>
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           value={newCampaign.limitDaily}
                           onChange={e => setNewCampaign({...newCampaign, limitDaily: parseInt(e.target.value) || 50})}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition" 
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Frequência</label>
-                        <select 
+                        <select
                           value={newCampaign.frequency}
                           onChange={e => setNewCampaign({...newCampaign, frequency: e.target.value as 'immediate' | 'daily'})}
                           className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
@@ -1304,6 +1307,45 @@ export default function App() {
                         </select>
                       </div>
                     </div>
+
+                    {/* Instruções do cron-jobs.org — aparece só quando a frequência é daily */}
+                    {newCampaign.frequency === 'daily' && (
+                      <div className="p-4 bg-violet-50/70 border border-violet-200 rounded-xl">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-base">⏰</span>
+                          <span className="text-xs font-black text-violet-800 uppercase tracking-widest">Configuração do Cron Externo</span>
+                        </div>
+                        <p className="text-[10px] text-violet-700/80 mb-3 leading-relaxed">
+                          Ao salvar esta campanha como <strong>Diária</strong>, configure um job no <strong>cron-jobs.org</strong> para acioná-la automaticamente todos os dias no horário desejado.
+                        </p>
+                        <div className="space-y-1.5">
+                          <div className="flex items-start gap-2">
+                            <span className="text-violet-500 font-black text-xs mt-0.5">1.</span>
+                            <span className="text-[10px] text-violet-800">
+                              Acesse <strong>cron-jobs.org</strong> → Create cronjob
+                            </span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-violet-500 font-black text-xs mt-0.5">2.</span>
+                            <div className="text-[10px] text-violet-800">
+                              URL: <code className="bg-violet-100 px-1 rounded font-mono text-[10px] break-all">GET https://SEU_BACKEND.railway.app/api/campaigns/trigger-scheduled</code>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-violet-500 font-black text-xs mt-0.5">3.</span>
+                            <span className="text-[10px] text-violet-800">
+                              Adicione o header: <code className="bg-violet-100 px-1 rounded font-mono text-[10px]">X-Cron-Secret: SEU_CRON_SECRET</code>
+                            </span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-violet-500 font-black text-xs mt-0.5">4.</span>
+                            <span className="text-[10px] text-violet-800">
+                              Defina o horário (ex: todos os dias às 09:00). O Scoutly buscará e disparará automaticamente.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <button 
                       type="submit"
