@@ -124,26 +124,26 @@ async function initDatabase() {
 
         // Safely add columns if they don't exist (for existing deployments)
         try {
-            await client.query(`ALTER TABLE api_keys ADD COLUMN twilio_account_sid TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN twilio_auth_token TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN twilio_phone_number TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN vysify_webhook_url TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN vysify_api_key TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_api_url TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_api_key TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN evolution_instance TEXT`);
-            await client.query(`ALTER TABLE api_keys ADD COLUMN google_maps_api_key TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS twilio_account_sid TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS twilio_auth_token TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS twilio_phone_number TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS vysify_webhook_url TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS vysify_api_key TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS evolution_api_url TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS evolution_api_key TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS evolution_instance TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS google_maps_api_key TEXT`);
         } catch (e) {
-            // Columns might already exist, ignore error
+            console.error('Erro ao adicionar colunas em api_keys:', e.message);
         }
 
         // Safely add new columns to campaigns table
         try {
-            await client.query(`ALTER TABLE campaigns ADD COLUMN search_criteria TEXT`);
-            await client.query(`ALTER TABLE campaigns ADD COLUMN channel TEXT`);
-            await client.query(`ALTER TABLE campaigns ADD COLUMN last_run_at TEXT`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS search_criteria TEXT`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS channel TEXT`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS last_run_at TEXT`);
         } catch (e) {
-            // Columns might already exist, ignore error
+            console.error('Erro ao adicionar colunas em campaigns:', e.message);
         }
 
         // Tabela de Memória & IA (Insights Retidos)
