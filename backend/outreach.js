@@ -44,7 +44,23 @@ async function sendWhatsApp(phone, messageContent, credentials = {}) {
     }
 
     // Normaliza o número para o formato internacional sem símbolos (ex: 5511999999999)
-    const normalizedPhone = String(phone).replace(/\D/g, '');
+    let normalizedPhone = String(phone).replace(/\D/g, '');
+    const countries = credentials?.countries || [];
+
+    if (!String(phone).startsWith('+')) {
+        if (normalizedPhone.length === 10 || normalizedPhone.length === 11) {
+            if (countries.includes('US')) {
+                if (normalizedPhone.length === 10) {
+                    normalizedPhone = '1' + normalizedPhone;
+                }
+            } else {
+                // Fallback para Brasil (55)
+                if (!normalizedPhone.startsWith('55')) {
+                    normalizedPhone = '55' + normalizedPhone;
+                }
+            }
+        }
+    }
 
     try {
         const endpoint = `${evolutionUrl}/message/sendText/${evolutionInstance}`;

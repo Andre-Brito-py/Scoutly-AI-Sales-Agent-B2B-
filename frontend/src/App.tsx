@@ -700,6 +700,44 @@ export default function App() {
     return () => clearInterval(interval);
   }, [runningCampaignId]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Polling leve para sincronizar dados em background a cada 10 segundos
+      fetch(`${API_BASE}/campaigns`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setCampaigns(prev => prev.map(c => {
+              const serverCamp = data.find(sc => String(sc.id) === c.id);
+              if (serverCamp) {
+                return {
+                  ...c,
+                  status: serverCamp.status,
+                  progress: serverCamp.progress,
+                  currentStep: serverCamp.current_step
+                };
+              }
+              return c;
+            }));
+          }
+        }).catch(() => {});
+
+      fetch(`${API_BASE}/leads`)
+        .then(r => r.json())
+        .then(leadsData => {
+          if (Array.isArray(leadsData)) setLeads(leadsData);
+        }).catch(() => {});
+
+      fetch(`${API_BASE}/outreach-logs`)
+        .then(r => r.json())
+        .then(logsData => {
+          if (Array.isArray(logsData)) setOutreachLogs(logsData);
+        }).catch(() => {});
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const addMockLead = (camp: Campaign) => {
     const selectedProdName = camp.targetProducts[0] || 'Scoutly Agent Core';
     const selectedProd = products.find(p => p.name === selectedProdName) || products[0];

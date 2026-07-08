@@ -165,7 +165,8 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
                 await sendWhatsApp(currentRecipient, personalizedMessage, {
                     evolutionUrl: apiKeys.evolution_api_url,
                     evolutionKey: apiKeys.evolution_api_key,
-                    evolutionInstance: apiKeys.evolution_instance
+                    evolutionInstance: apiKeys.evolution_instance,
+                    countries: searchCriteria.countries
                 });
             } catch (err) {
                 curStatus = 'failed';
