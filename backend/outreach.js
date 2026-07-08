@@ -125,15 +125,43 @@ async function sendTelegramNotification(token, chatId, messageContent) {
 
 async function sendTwilioSMS(accountSid, authToken, fromNumber, to, body) {
     if (!accountSid || !authToken || !fromNumber || !to) {
-        console.warn('Credenciais da Twilio ausentes. Pulando envio de SMS.');
-        return false;
+        throw new Error('Credenciais da Twilio ou número de destino ausentes.');
+    }
+
+    // Normaliza o número de destino para formato internacional (E.164)
+    let cleanTo = String(to).replace(/\D/g, '');
+    if (String(to).startsWith('+')) {
+        cleanTo = '+' + cleanTo;
+    } else {
+        // Se tiver 10 dígitos (tamanho padrão nos EUA), adiciona +1
+        if (cleanTo.length === 10) {
+            cleanTo = '+1' + cleanTo;
+        } else if (cleanTo.length === 11) {
+            // Se tiver 11 dígitos e começar with 1 (EUA com DDI), adiciona +
+            if (cleanTo.startsWith('1')) {
+                cleanTo = '+' + cleanTo;
+            } else {
+                // Celular do Brasil
+                cleanTo = '+55' + cleanTo;
+            }
+        } else if (cleanTo.length === 12 || cleanTo.length === 13) {
+            cleanTo = '+' + cleanTo;
+        } else {
+            cleanTo = '+' + cleanTo;
+        }
+    }
+
+    // Normaliza o número do remetente Twilio (garante sinal de +)
+    let cleanFrom = fromNumber;
+    if (!cleanFrom.startsWith('+')) {
+        cleanFrom = '+' + cleanFrom.replace(/\D/g, '');
     }
 
     try {
         const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
         const encodedData = new URLSearchParams();
-        encodedData.append('To', to);
-        encodedData.append('From', fromNumber);
+        encodedData.append('To', cleanTo);
+        encodedData.append('From', cleanFrom);
         encodedData.append('Body', body);
 
         const response = await fetch(url, {
@@ -145,13 +173,18 @@ async function sendTwilioSMS(accountSid, authToken, fromNumber, to, body) {
             body: encodedData
         });
 
-        if (response.ok) return true;
-        const errorData = await response.json();
-        console.error('[Twilio] API Erro:', errorData);
-        return false;
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('[Twilio] API Erro:', errorData);
+            throw new Error(errorData.message || `Erro Twilio status ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log(`[Twilio] SMS enviado com sucesso para ${cleanTo}. SID: ${result.sid}`);
+        return result;
     } catch (e) {
         console.error('[Twilio] Erro ao enviar SMS:', e.message);
-        return false;
+        throw e;
     }
 }
 

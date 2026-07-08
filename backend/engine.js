@@ -150,11 +150,15 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
         let curError = null;
 
         if (ch === 'sms' && apiKeys?.twilio_account_sid) {
-            const sent = await sendTwilioSMS(
-                apiKeys.twilio_account_sid, apiKeys.twilio_auth_token,
-                apiKeys.twilio_phone_number, currentRecipient, personalizedMessage
-            );
-            if (!sent) { curStatus = 'failed'; curError = 'Twilio SMS falhou'; }
+            try {
+                await sendTwilioSMS(
+                    apiKeys.twilio_account_sid, apiKeys.twilio_auth_token,
+                    apiKeys.twilio_phone_number, currentRecipient, personalizedMessage
+                );
+            } catch (err) {
+                curStatus = 'failed';
+                curError = err.message;
+            }
 
         } else if (ch === 'whatsapp' && (apiKeys?.evolution_api_url || apiKeys?.whatsapp_token)) {
             try {
