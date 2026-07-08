@@ -614,6 +614,17 @@ export default function App() {
     }
   };
 
+  const handleClearLogs = async () => {
+    if (!confirm('Deseja realmente limpar todos os logs de disparo e redefinir o pipeline local? Isso apagará o histórico atual.')) return;
+    try {
+      await fetch(`${API_BASE}/outreach-logs`, { method: 'DELETE' });
+      setOutreachLogs([]);
+      setLeads([]);
+    } catch {
+      console.log('Erro ao limpar logs no servidor.');
+    }
+  };
+
   useEffect(() => {
     if (!runningCampaignId) return;
 
@@ -2187,9 +2198,20 @@ export default function App() {
           {/* OUTREACH LOGS TAB */}
           {activeTab === 'logs' && (
             <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
-              <div>
-                <h2 className="text-xl font-extrabold text-foreground tracking-tight uppercase">Logs de Disparos Outbound</h2>
-                <p className="text-xs text-muted-foreground mt-1.5 font-semibold">Monitore e acompanhe cada mensagem enviada, status de entrega e erros de API em tempo real.</p>
+              <div className="flex justify-between items-center bg-card border border-border rounded-2xl p-7 shadow-sm">
+                <div>
+                  <h2 className="text-xl font-extrabold text-foreground tracking-tight uppercase">Logs de Disparos Outbound</h2>
+                  <p className="text-xs text-muted-foreground mt-1.5 font-semibold">Monitore e acompanhe cada mensagem enviada, status de entrega e erros de API em tempo real.</p>
+                </div>
+                {outreachLogs.length > 0 && (
+                  <button 
+                    onClick={handleClearLogs}
+                    className="flex items-center space-x-1.5 px-4.5 py-2.5 bg-red-50 hover:bg-red-100 text-red-650 hover:text-red-750 text-xs font-bold rounded-xl border border-red-200 shadow-sm transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Limpar Histórico</span>
+                  </button>
+                )}
               </div>
 
               <GlassCard className=" overflow-hidden" glow={false}>

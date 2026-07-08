@@ -328,6 +328,16 @@ app.get('/api/outreach-logs', (req, res) => {
     });
 });
 
+app.delete('/api/outreach-logs', (req, res) => {
+    db.run(`DELETE FROM outreach_logs`, [], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        db.run(`DELETE FROM leads`, [], function(errLeads) {
+            if (errLeads) return res.status(500).json({ error: errLeads.message });
+            res.json({ success: true, message: 'Logs e leads limpos com sucesso.' });
+        });
+    });
+});
+
 // --- Rotas de Chaves de API ---
 app.get('/api/keys', (req, res) => {
     db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => {
