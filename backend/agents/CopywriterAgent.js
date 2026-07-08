@@ -53,6 +53,9 @@ class CopywriterAgent {
         3. Cutuque a dor mapeada.
         4. Siga estritamente o "Melhor CTA" definido na estratégia e nas "Regras de Ouro".
         5. ESCREVA A MENSAGEM INTEIRAMENTE EM: ${language || 'Português'}.
+        6. PROIBIÇÃO DE PLACEHOLDERS: Você é um robô de disparo 100% automático. Você NUNCA deve incluir colchetes ou placeholders genéricos como "[Nome]", "[Nome da Empresa]", "[Seu Nome]", "[Cargo]" ou "[Link]" na mensagem.
+        7. Tratamento de contatos genéricos/ausentes: Se o nome do contato for desconhecido, genérico (ex: "Administração", "Responsável", "Gestor(a)", "Sem Contato") ou nulo, NUNCA crie placeholders. Em vez disso, use uma saudação coletiva ou genérica natural (ex: "Olá, equipe da ${leadData.companyName}!", "Tudo bem com vocês?", "Olá, pessoal!").
+        8. Assinatura: Assine sempre apenas de forma genérica como "Equipe Vysify" ou não coloque assinatura se o CTA já for direto.
         ${calendarBlock}
         
         Responda apenas com o corpo da mensagem. Não adicione saudações como "Aqui está a mensagem" antes.`;
