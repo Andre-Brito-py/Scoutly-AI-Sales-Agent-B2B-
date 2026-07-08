@@ -91,6 +91,7 @@ async function initDatabase() {
                 current_step TEXT,
                 search_criteria TEXT,
                 channel TEXT,
+                fallback_channel TEXT,
                 last_run_at TEXT
             )
         `);
@@ -141,6 +142,7 @@ async function initDatabase() {
         try {
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS search_criteria TEXT`);
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS channel TEXT`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS fallback_channel TEXT`);
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS last_run_at TEXT`);
         } catch (e) {
             console.error('Erro ao adicionar colunas em campaigns:', e.message);

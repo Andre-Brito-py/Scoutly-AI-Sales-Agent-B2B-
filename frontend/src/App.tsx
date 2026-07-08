@@ -69,6 +69,7 @@ interface Campaign {
   progress: number;
   currentStep: string;
   searchCriteria?: { channel?: 'email' | 'whatsapp' | 'telegram' | 'sms' };
+  fallbackChannel?: 'none' | 'email' | 'whatsapp' | 'telegram' | 'sms';
   customInstructions?: string;
 }
 
@@ -341,6 +342,7 @@ export default function App() {
     limitDaily: 50,
     frequency: 'immediate',
     searchCriteria: { channel: 'whatsapp' },
+    fallbackChannel: 'none',
     customInstructions: ''
   });
 
@@ -456,7 +458,9 @@ export default function App() {
             frequency: c.frequency || 'immediate',
             status: c.status,
             progress: c.progress,
-            currentStep: c.current_step
+            currentStep: c.current_step,
+            searchCriteria: { channel: c.channel || 'whatsapp' },
+            fallbackChannel: c.fallback_channel || 'none'
           })));
         }
       })
@@ -579,6 +583,7 @@ export default function App() {
             cities: campToStart.prospectingArea.cities,
             targetProducts: campToStart.targetProducts,
             channel: campToStart.searchCriteria?.channel || 'whatsapp',
+            fallback_channel: campToStart.fallbackChannel || 'none',
             language: campToStart.language || 'Português',
             customInstructions: campToStart.customInstructions || ''
           }
@@ -815,6 +820,7 @@ export default function App() {
           limit_daily: newCampaign.limitDaily,
           frequency: newCampaign.frequency,
           channel: newCampaign.searchCriteria?.channel,
+          fallback_channel: newCampaign.fallbackChannel || 'none',
           custom_instructions: newCampaign.customInstructions
         })
       });
@@ -831,6 +837,7 @@ export default function App() {
       limitDaily: 50,
       frequency: 'immediate',
       searchCriteria: { channel: 'whatsapp' },
+      fallbackChannel: 'none',
       customInstructions: ''
     });
     setActiveTab('campaigns');
@@ -1237,7 +1244,7 @@ export default function App() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Idioma</label>
                         <select 
@@ -1269,11 +1276,34 @@ export default function App() {
                           <option value="whatsapp">📱 WhatsApp (Recomendado)</option>
                           <option value="sms">💬 SMS via Twilio</option>
                           <option value="telegram">✈️ Telegram Direct</option>
-                          <option value="email">⚠️ E-mail (e-mails são deduzidos, pode haver bounce)</option>
+                          <option value="email">⚠️ E-mail (deduzido via domínio)</option>
                         </select>
                         {(newCampaign.searchCriteria?.channel === 'email' || !newCampaign.searchCriteria?.channel) && (
                           <p className="mt-1.5 text-[10px] text-amber-600 font-medium flex items-center gap-1">
-                            <span>⚠️</span> O e-mail é deduzido pelo domínio do site (ex: contato@empresa.com). Pode haver bounces. Prefira WhatsApp ou SMS para maior entrega.
+                            <span>⚠️</span> E-mail deduzido pelo domínio. Pode haver bounces.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Canal Secundário (Fallback)</label>
+                        <select
+                          value={newCampaign.fallbackChannel || 'none'}
+                          onChange={e => setNewCampaign({
+                            ...newCampaign,
+                            fallbackChannel: e.target.value as 'none' | 'email' | 'whatsapp' | 'telegram' | 'sms'
+                          })}
+                          disabled={newCampaign.searchCriteria?.channel !== 'whatsapp'}
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="none">❌ Nenhum (Não re-disparar)</option>
+                          <option value="sms">💬 SMS via Twilio</option>
+                          <option value="email">📧 E-mail (Se WhatsApp falhar)</option>
+                          <option value="telegram">✈️ Telegram Direct</option>
+                        </select>
+                        {newCampaign.searchCriteria?.channel !== 'whatsapp' && (
+                          <p className="mt-1.5 text-[9px] text-slate-400 font-medium leading-normal">
+                            Disponível apenas quando o canal principal é o WhatsApp.
                           </p>
                         )}
                       </div>
@@ -1430,6 +1460,10 @@ export default function App() {
                             <span><strong>Segmento:</strong> {camp.segment}</span>
                             <span><strong>Região:</strong> {buildRegionLabel(camp.prospectingArea)}</span>
                             <span><strong>Produtos:</strong> {camp.targetProducts?.length > 0 ? camp.targetProducts.join(', ') : 'Nenhum (Geral)'}</span>
+                            <span><strong>Canal Principal:</strong> {camp.searchCriteria?.channel ? camp.searchCriteria.channel.toUpperCase() : 'WHATSAPP'}</span>
+                            {camp.fallbackChannel && camp.fallbackChannel !== 'none' && (
+                              <span><strong>Fallback:</strong> <span className="text-indigo-650 font-black uppercase">{camp.fallbackChannel}</span></span>
+                            )}
                           </div>
                         </div>
 

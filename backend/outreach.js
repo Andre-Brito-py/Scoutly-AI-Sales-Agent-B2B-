@@ -65,6 +65,20 @@ async function sendWhatsApp(phone, messageContent, credentials = {}) {
         if (!response.ok) {
             const errText = await response.text();
             console.error('[WhatsApp] Evolution API erro:', errText);
+            
+            // Tenta detectar se o erro foi por falta de WhatsApp cadastrado no número
+            let isNoWhatsapp = false;
+            try {
+                const parsed = JSON.parse(errText);
+                const msg = parsed?.response?.message;
+                if (Array.isArray(msg) && msg.some(m => m && m.exists === false)) {
+                    isNoWhatsapp = true;
+                }
+            } catch {}
+
+            if (isNoWhatsapp) {
+                throw new Error('NO_WHATSAPP');
+            }
             throw new Error(`Evolution API devolveu status ${response.status}`);
         }
 

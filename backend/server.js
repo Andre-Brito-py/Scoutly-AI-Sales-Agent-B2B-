@@ -283,11 +283,11 @@ app.get('/api/campaigns', (req, res) => {
 });
 
 app.post('/api/campaigns', (req, res) => {
-    const { id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step } = req.body;
+    const { id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel, fallback_channel } = req.body;
     db.run(
-        `INSERT INTO campaigns (id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [id, name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, status, progress, current_step],
+        `INSERT INTO campaigns (id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel, fallback_channel) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [id, name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel || 'whatsapp', fallback_channel || 'none'],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });

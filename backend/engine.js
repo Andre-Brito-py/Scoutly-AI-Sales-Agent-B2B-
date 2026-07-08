@@ -136,60 +136,101 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
         await sendTelegramNotification(apiKeys.telegram_token, apiKeys.telegram_chat_id, text);
     }
 
-    // Disparo para o lead (canal configurado na campanha)
-    const channel = searchCriteria.channel || 'whatsapp';
-    let recipient = formattedLead.phone;
-    if (channel === 'email') recipient = formattedLead.email;
+    // -----------------------------------------------------------------------
+    // Mecanismo de Disparo Outbound (com suporte a Fallback)
+    // -----------------------------------------------------------------------
+    const primaryChannel = searchCriteria.channel || 'whatsapp';
+    const fallbackChannel = searchCriteria.fallback_channel || null;
 
-    let status = 'sent';
-    let errorMessage = null;
+    async function attemptSend(ch) {
+        let currentRecipient = formattedLead.phone;
+        if (ch === 'email') currentRecipient = formattedLead.email;
 
-    if (channel === 'sms' && apiKeys?.twilio_account_sid) {
-        const sent = await sendTwilioSMS(
-            apiKeys.twilio_account_sid, apiKeys.twilio_auth_token,
-            apiKeys.twilio_phone_number, recipient, personalizedMessage
-        );
-        if (!sent) { status = 'failed'; errorMessage = 'Twilio SMS falhou'; }
+        let curStatus = 'sent';
+        let curError = null;
 
-    } else if (channel === 'whatsapp' && (apiKeys?.evolution_api_url || apiKeys?.whatsapp_token)) {
-        try {
-            await sendWhatsApp(recipient, personalizedMessage, {
-                evolutionUrl: apiKeys.evolution_api_url,
-                evolutionKey: apiKeys.evolution_api_key,
-                evolutionInstance: apiKeys.evolution_instance
-            });
-        } catch (err) {
-            status = 'failed';
-            errorMessage = 'Falha ao enviar WhatsApp: ' + err.message;
-        }
-
-    } else if (channel === 'email' && apiKeys?.resend) {
-        try {
-            process.env.RESEND_API_KEY = apiKeys.resend;
-            await sendEmail(
-                recipient,
-                `Oportunidade para a ${formattedLead.companyName}`,
-                personalizedMessage.replace(/\n/g, '<br>')
+        if (ch === 'sms' && apiKeys?.twilio_account_sid) {
+            const sent = await sendTwilioSMS(
+                apiKeys.twilio_account_sid, apiKeys.twilio_auth_token,
+                apiKeys.twilio_phone_number, currentRecipient, personalizedMessage
             );
-        } catch (err) {
-            status = 'failed';
-            errorMessage = 'Falha ao enviar Email: ' + err.message;
+            if (!sent) { curStatus = 'failed'; curError = 'Twilio SMS falhou'; }
+
+        } else if (ch === 'whatsapp' && (apiKeys?.evolution_api_url || apiKeys?.whatsapp_token)) {
+            try {
+                await sendWhatsApp(currentRecipient, personalizedMessage, {
+                    evolutionUrl: apiKeys.evolution_api_url,
+                    evolutionKey: apiKeys.evolution_api_key,
+                    evolutionInstance: apiKeys.evolution_instance
+                });
+            } catch (err) {
+                curStatus = 'failed';
+                curError = err.message; // Pode ser 'NO_WHATSAPP'
+            }
+
+        } else if (ch === 'email' && apiKeys?.resend) {
+            try {
+                process.env.RESEND_API_KEY = apiKeys.resend;
+                await sendEmail(
+                    currentRecipient,
+                    `Oportunidade para a ${formattedLead.companyName}`,
+                    personalizedMessage.replace(/\n/g, '<br>')
+                );
+            } catch (err) {
+                curStatus = 'failed';
+                curError = 'Falha ao enviar Email: ' + err.message;
+            }
+
+        } else {
+            curStatus = 'skipped';
+            curError = `Canal "${ch}" não configurado ou sem credenciais.`;
         }
 
-    } else {
-        status = 'skipped';
-        errorMessage = `Canal "${channel}" não configurado ou sem credenciais.`;
-        console.warn(`[Engine] ${errorMessage}`);
+        return { status: curStatus, errorMessage: curError, recipient: currentRecipient };
     }
 
-    db.run(
-        `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        ['log_' + Date.now(), formattedLead.id, campaignId, channel, recipient,
-         personalizedMessage, status, errorMessage, new Date().toISOString()]
-    );
-    db.run(`UPDATE leads SET status = $1 WHERE id = $2`, [status, formattedLead.id]);
-    console.log(`[Engine] Disparo via ${channel} para ${recipient} → ${status}`);
+    // Executa disparo primário
+    let result = await attemptSend(primaryChannel);
+
+    // Se falhar porque não possui WhatsApp e houver um canal de fallback válido
+    if (primaryChannel === 'whatsapp' && result.errorMessage === 'NO_WHATSAPP') {
+        // Registra a falha do canal primário (WhatsApp inexistente) no log de disparos
+        db.run(
+            `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            ['log_pri_' + Date.now(), formattedLead.id, campaignId, primaryChannel, result.recipient,
+             personalizedMessage, 'no_whatsapp', 'Número de telefone sem WhatsApp ativo.', new Date().toISOString()]
+        );
+        console.log(`[Engine] Lead ${formattedLead.companyName} sem WhatsApp. Tentando canal secundário...`);
+
+        if (fallbackChannel && fallbackChannel !== 'none' && fallbackChannel !== primaryChannel) {
+            console.log(`[Engine] Chaveando para o canal secundário (fallback): ${fallbackChannel}`);
+            result = await attemptSend(fallbackChannel);
+            
+            // Registra o log do canal secundário (definitivo)
+            db.run(
+                `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                ['log_sec_' + Date.now(), formattedLead.id, campaignId, fallbackChannel, result.recipient,
+                 personalizedMessage, result.status, result.errorMessage, new Date().toISOString()]
+            );
+        } else {
+            // Se não houver fallback, atualiza o status final do lead como no_whatsapp
+            result.status = 'no_whatsapp';
+            result.errorMessage = 'Ignorado: Número sem WhatsApp ativo (sem canal secundário configurado).';
+        }
+    } else {
+        // Registro normal (sem fallback necessário)
+        db.run(
+            `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            ['log_' + Date.now(), formattedLead.id, campaignId, primaryChannel, result.recipient,
+             personalizedMessage, result.status, result.errorMessage, new Date().toISOString()]
+        );
+    }
+
+    db.run(`UPDATE leads SET status = $1 WHERE id = $2`, [result.status, formattedLead.id]);
+    console.log(`[Engine] Status final de disparo para ${formattedLead.companyName} → ${result.status}`);
 }
 
 // ---------------------------------------------------------------------------
