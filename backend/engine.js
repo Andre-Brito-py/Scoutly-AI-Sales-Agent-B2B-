@@ -196,41 +196,49 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     // Executa disparo primário
     let result = await attemptSend(primaryChannel);
 
-    // Se falhar porque não possui WhatsApp e houver um canal de fallback válido
-    if (primaryChannel === 'whatsapp' && result.errorMessage === 'NO_WHATSAPP') {
-        // Registra a falha do canal primário (WhatsApp inexistente) no log de disparos
+    const isNoWhatsapp = primaryChannel === 'whatsapp' && result.errorMessage === 'NO_WHATSAPP';
+    const hasFailed = result.status === 'failed' || isNoWhatsapp;
+
+    // Se falhar no canal principal e houver um canal secundário de fallback configurado
+    if (hasFailed && fallbackChannel && fallbackChannel !== 'none' && fallbackChannel !== primaryChannel) {
+        // Registra o log de falha intermediária do canal primário
+        const intermediateStatus = isNoWhatsapp ? 'no_whatsapp' : 'failed';
+        const intermediateError = isNoWhatsapp ? 'Número de telefone sem WhatsApp ativo.' : (result.errorMessage || 'Falha no canal principal');
+        
         db.run(
             `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             ['log_pri_' + Date.now(), formattedLead.id, campaignId, primaryChannel, result.recipient,
-             personalizedMessage, 'no_whatsapp', 'Número de telefone sem WhatsApp ativo.', new Date().toISOString()]
+             personalizedMessage, intermediateStatus, intermediateError, new Date().toISOString()]
         );
-        console.log(`[Engine] Lead ${formattedLead.companyName} sem WhatsApp. Tentando canal secundário...`);
+        console.log(`[Engine] Falha no canal principal ${primaryChannel} para ${formattedLead.companyName}. Tentando fallback: ${fallbackChannel}...`);
 
-        if (fallbackChannel && fallbackChannel !== 'none' && fallbackChannel !== primaryChannel) {
-            console.log(`[Engine] Chaveando para o canal secundário (fallback): ${fallbackChannel}`);
-            result = await attemptSend(fallbackChannel);
-            
-            // Registra o log do canal secundário (definitivo)
-            db.run(
-                `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                ['log_sec_' + Date.now(), formattedLead.id, campaignId, fallbackChannel, result.recipient,
-                 personalizedMessage, result.status, result.errorMessage, new Date().toISOString()]
-            );
-        } else {
-            // Se não houver fallback, atualiza o status final do lead como no_whatsapp
-            result.status = 'no_whatsapp';
-            result.errorMessage = 'Ignorado: Número sem WhatsApp ativo (sem canal secundário configurado).';
-        }
+        // Executa disparo secundário
+        result = await attemptSend(fallbackChannel);
+        
+        // Registra o log de disparo do canal secundário (definitivo)
+        db.run(
+            `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            ['log_sec_' + Date.now(), formattedLead.id, campaignId, fallbackChannel, result.recipient,
+             personalizedMessage, result.status, result.errorMessage, new Date().toISOString()]
+        );
     } else {
-        // Registro normal (sem fallback necessário)
+        // Registro normal (sem fallback configurado ou sem falha)
+        let finalStatus = result.status;
+        let finalError = result.errorMessage;
+        if (isNoWhatsapp) {
+            finalStatus = 'no_whatsapp';
+            finalError = 'Ignorado: Número sem WhatsApp ativo (sem canal secundário configurado).';
+        }
+        
         db.run(
             `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             ['log_' + Date.now(), formattedLead.id, campaignId, primaryChannel, result.recipient,
-             personalizedMessage, result.status, result.errorMessage, new Date().toISOString()]
+             personalizedMessage, finalStatus, finalError, new Date().toISOString()]
         );
+        result.status = finalStatus;
     }
 
     db.run(`UPDATE leads SET status = $1 WHERE id = $2`, [result.status, formattedLead.id]);

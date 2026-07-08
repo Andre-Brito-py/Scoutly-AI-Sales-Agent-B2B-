@@ -1293,19 +1293,17 @@ export default function App() {
                             ...newCampaign,
                             fallbackChannel: e.target.value as 'none' | 'email' | 'whatsapp' | 'telegram' | 'sms'
                           })}
-                          disabled={newCampaign.searchCriteria?.channel !== 'whatsapp'}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
                         >
                           <option value="none">❌ Nenhum (Não re-disparar)</option>
-                          <option value="sms">💬 SMS via Twilio</option>
-                          <option value="email">📧 E-mail (Se WhatsApp falhar)</option>
-                          <option value="telegram">✈️ Telegram Direct</option>
+                          <option value="whatsapp" disabled={newCampaign.searchCriteria?.channel === 'whatsapp'}>📱 WhatsApp</option>
+                          <option value="sms" disabled={newCampaign.searchCriteria?.channel === 'sms'}>💬 SMS via Twilio</option>
+                          <option value="email" disabled={newCampaign.searchCriteria?.channel === 'email'}>📧 E-mail</option>
+                          <option value="telegram" disabled={newCampaign.searchCriteria?.channel === 'telegram'}>✈️ Telegram Direct</option>
                         </select>
-                        {newCampaign.searchCriteria?.channel !== 'whatsapp' && (
-                          <p className="mt-1.5 text-[9px] text-slate-400 font-medium leading-normal">
-                            Disponível apenas quando o canal principal é o WhatsApp.
-                          </p>
-                        )}
+                        <p className="mt-1.5 text-[9px] text-slate-400 font-medium leading-normal">
+                          Caso a tentativa no canal principal falhe (ex: número sem WhatsApp ou falha de SMS), o robô tentará enviar pelo meio secundário.
+                        </p>
                       </div>
                     </div>
 
