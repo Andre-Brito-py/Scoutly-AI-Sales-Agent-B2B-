@@ -28,6 +28,7 @@ import {
   Sun,
   Edit2,
   Trash2,
+  Pause,
   Menu
 } from 'lucide-react';
 
@@ -64,7 +65,7 @@ interface Campaign {
   targetProducts: string[];
   limitDaily: number;
   frequency: 'immediate' | 'daily';
-  status: 'idle' | 'running' | 'completed';
+  status: 'idle' | 'running' | 'completed' | 'active' | 'paused';
   progress: number;
   currentStep: string;
   searchCriteria?: { channel?: 'email' | 'whatsapp' | 'telegram' | 'sms' };
@@ -585,6 +586,31 @@ export default function App() {
       });
     } catch {
       console.log('Backend indisponível — rodando em modo demo.');
+    }
+  };
+
+  const stopCampaign = async (campaignId: string) => {
+    setCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, status: 'paused' } : c));
+    try {
+      await fetch(`${API_BASE}/campaigns/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId })
+      });
+    } catch {
+      console.log('Erro ao pausar no servidor.');
+    }
+  };
+
+  const deleteCampaign = async (campaignId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta campanha?')) return;
+    setCampaigns(prev => prev.filter(c => c.id !== campaignId));
+    try {
+      await fetch(`${API_BASE}/campaigns/${campaignId}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      console.log('Erro ao excluir no servidor.');
     }
   };
 
@@ -1371,9 +1397,21 @@ export default function App() {
                                 ? 'bg-indigo-50 text-indigo-700 border-indigo-100' 
                                 : camp.status === 'completed'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                : camp.status === 'active'
+                                ? 'bg-blue-50 text-blue-700 border-blue-100'
+                                : camp.status === 'paused'
+                                ? 'bg-amber-50 text-amber-700 border-amber-100'
                                 : 'bg-slate-100 text-muted-foreground border-border'
                             }`}>
-                              {camp.status === 'running' ? 'Executando' : camp.status === 'completed' ? 'Finalizada' : 'Aguardando'}
+                              {camp.status === 'running' 
+                                ? 'Executando' 
+                                : camp.status === 'completed' 
+                                ? 'Finalizada' 
+                                : camp.status === 'active'
+                                ? 'Ativa (Agendada)'
+                                : camp.status === 'paused'
+                                ? 'Pausada'
+                                : 'Aguardando'}
                             </span>
                           </div>
                           
@@ -1384,15 +1422,35 @@ export default function App() {
                           </div>
                         </div>
 
-                        {camp.status === 'idle' && (
+                        <div className="flex items-center space-x-2">
+                          {(camp.status === 'idle' || camp.status === 'paused') && (
+                            <button 
+                              onClick={() => startCampaign(camp.id)}
+                              title="Iniciar campanha"
+                              className="flex items-center justify-center p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition"
+                            >
+                              <Play className="w-4 h-4 text-white fill-white" />
+                            </button>
+                          )}
+
+                          {(camp.status === 'active' || camp.status === 'running') && (
+                            <button 
+                              onClick={() => stopCampaign(camp.id)}
+                              title="Pausar campanha"
+                              className="flex items-center justify-center p-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition"
+                            >
+                              <Pause className="w-4 h-4 text-white fill-white" />
+                            </button>
+                          )}
+
                           <button 
-                            onClick={() => startCampaign(camp.id)}
-                            className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm transition"
+                            onClick={() => deleteCampaign(camp.id)}
+                            title="Excluir campanha"
+                            className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 border border-slate-200 text-slate-500 hover:border-red-200 rounded-lg shadow-sm transition"
                           >
-                            <Play className="w-3 h-3 text-white" />
-                            <span>Iniciar</span>
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        )}
+                        </div>
                       </div>
 
                       {/* Progress bar / AI output */}

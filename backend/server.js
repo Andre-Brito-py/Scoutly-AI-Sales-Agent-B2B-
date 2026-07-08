@@ -295,6 +295,15 @@ app.post('/api/campaigns', (req, res) => {
     );
 });
 
+app.delete('/api/campaigns/:id', (req, res) => {
+    const { id } = req.params;
+    db.run(`DELETE FROM campaigns WHERE id = $1`, [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, message: 'Campanha excluída com sucesso.' });
+    });
+});
+
+
 // --- Rotas de Logs de Disparo ---
 app.get('/api/outreach-logs', (req, res) => {
     db.all(`
