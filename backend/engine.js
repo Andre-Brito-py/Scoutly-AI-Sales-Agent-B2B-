@@ -11,6 +11,41 @@ const runningCampaigns = new Set();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Sincroniza logs de prospecção bem-sucedidos com o omnichannel do Vysify
+async function syncOutreachWithVysify(lead, channel, messageContent) {
+    db.get('SELECT vysify_webhook_url, vysify_api_key FROM api_keys LIMIT 1', [], async (err, keys) => {
+        if (err || !keys || !keys.vysify_webhook_url) return;
+        try {
+            console.log(`[Vysify Sync] Enviando log de outreach do lead ${lead.companyName} para Vysify...`);
+            const headers = { 'Content-Type': 'application/json' };
+            if (keys.vysify_api_key) {
+                headers['Authorization'] = `Bearer ${keys.vysify_api_key}`;
+            }
+            await fetch(keys.vysify_webhook_url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    source: 'scoutly',
+                    event: 'outreach_sent',
+                    channel: channel,
+                    messageContent: messageContent,
+                    lead: {
+                        companyName: lead.companyName,
+                        contactName: lead.contactName || lead.companyName,
+                        email: lead.email,
+                        phone: lead.phone,
+                        score: lead.score,
+                        scoreReason: lead.scoreReason,
+                        personalizedMessage: messageContent
+                    }
+                })
+            });
+        } catch (webhookErr) {
+            console.error(`[Vysify Sync] Erro ao sincronizar outreach com Vysify:`, webhookErr.message);
+        }
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Pipeline completo de um único lead
 // ---------------------------------------------------------------------------
@@ -244,6 +279,12 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
 
     db.run(`UPDATE leads SET status = $1 WHERE id = $2`, [result.status, formattedLead.id]);
     console.log(`[Engine] Status final de disparo para ${formattedLead.companyName} → ${result.status}`);
+
+    // Se o disparo foi bem sucedido (sent ou success), sincroniza com o omnichannel do Vysify
+    if (result.status === 'sent' || result.status === 'success') {
+        const successfulChannel = (hasFailed && fallbackChannel && fallbackChannel !== 'none') ? fallbackChannel : primaryChannel;
+        syncOutreachWithVysify(formattedLead, successfulChannel, personalizedMessage);
+    }
 }
 
 // ---------------------------------------------------------------------------
