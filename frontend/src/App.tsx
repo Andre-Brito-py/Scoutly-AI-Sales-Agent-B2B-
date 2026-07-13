@@ -164,6 +164,7 @@ export default function App() {
   const [loginError, setLoginError] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs' | 'import'>('dashboard');
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
+  const [selectedLog, setSelectedLog] = useState<OutreachLog | null>(null);
   const [isAgentWorking, setIsAgentWorking] = useState(false);
   const [agentStatusText, setAgentStatusText] = useState('');
 
@@ -2307,7 +2308,11 @@ export default function App() {
                         </tr>
                       ) : (
                         outreachLogs.map(log => (
-                          <tr key={log.id} className="hover:bg-muted/30/50 transition duration-150">
+                          <tr 
+                            key={log.id} 
+                            onClick={() => setSelectedLog(log)}
+                            className="hover:bg-muted/30/50 transition duration-150 cursor-pointer"
+                          >
                             <td className="px-6 py-4.5 font-bold text-foreground">
                               {log.lead?.companyName || 'Empresa Desconhecida'}
                               <span className="block text-[10px] text-slate-400 font-semibold">{log.lead?.contactName || 'Sem Contato'}</span>
@@ -2333,10 +2338,10 @@ export default function App() {
                                 </span>
                               )}
                               {log.error_message && (
-                                <span className="block text-[9px] text-red-600 mt-1.5 max-w-[150px] truncate">{log.error_message}</span>
+                                <span className="block text-[9px] text-red-655 mt-1.5 max-w-[150px] truncate font-semibold">{log.error_message}</span>
                               )}
                             </td>
-                            <td className="px-6 py-4.5 max-w-xs truncate italic text-muted-foreground" title={log.message_content}>
+                            <td className="px-6 py-4.5 max-w-xs truncate italic text-muted-foreground">
                               {log.message_content}
                             </td>
                             <td className="px-6 py-4.5 text-slate-400 font-semibold">
@@ -2344,7 +2349,8 @@ export default function App() {
                             </td>
                             <td className="px-6 py-4.5 text-right">
                                 <button 
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         fetch(`${API_BASE}/memory/learn`, {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
@@ -2803,6 +2809,104 @@ export default function App() {
                     </button>
                   </div>
                 </form>
+              </GlassCard>
+            </div>
+          )}
+
+          {/* Outreach Log Detail Modal */}
+          {selectedLog && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <GlassCard className="shadow-xl rounded-2xl max-w-2xl w-full p-6 relative">
+                <button 
+                  onClick={() => setSelectedLog(null)}
+                  className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-muted-foreground transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-black text-foreground tracking-tight">
+                    {selectedLog.lead?.companyName || 'Empresa Desconhecida'}
+                  </h3>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                    selectedLog.channel === 'email' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                    selectedLog.channel === 'whatsapp' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                    'bg-sky-50 text-sky-700 border border-sky-100'
+                  }`}>
+                    {selectedLog.channel}
+                  </span>
+                </div>
+                <span className="text-xs text-slate-400 font-bold block mt-1">
+                  Decisor: {selectedLog.lead?.contactName || 'Sem Contato'} ({selectedLog.lead?.contactRole || 'Gestor'})
+                </span>
+
+                <div className="mt-6 space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Destinatário de Envio</span>
+                      <span className="text-xs font-bold text-slate-700 block mt-1 font-mono">{selectedLog.recipient}</span>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-xl border border-border">
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Status de Envio</span>
+                      {selectedLog.status === 'sent' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 mt-1">
+                          Sucesso
+                        </span>
+                      ) : (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-100">
+                            Falha
+                          </span>
+                          {selectedLog.error_message && (
+                            <span className="block text-[9px] text-red-655 mt-1 font-semibold">{selectedLog.error_message}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">Mensagem Enviada na Íntegra</h4>
+                    <div className="text-xs text-slate-700 leading-relaxed bg-background border border-border p-4.5 rounded-xl font-semibold whitespace-pre-line max-h-[300px] overflow-y-auto">
+                      {selectedLog.message_content}
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-indigo-50/50 border border-indigo-100/60 rounded-xl text-[11px] text-slate-655 flex justify-between items-center gap-3">
+                    <span>
+                      💡 Gostou da mensagem gerada pela IA para este lead? Marque como Sucesso para ensinar o agente.
+                    </span>
+                    <button 
+                      onClick={() => {
+                        fetch(`${API_BASE}/memory/learn`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            leadId: selectedLog.lead_id,
+                            companyName: selectedLog.lead?.companyName || 'Empresa',
+                            messageContent: selectedLog.message_content
+                          })
+                        }).then(res => res.json()).then(() => {
+                          alert('O Agente de IA analisou essa mensagem e aprendeu o padrão de sucesso!');
+                          fetch(`${API_BASE}/memory`).then(r => r.json()).then(data => setAiMemory(data));
+                        });
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition whitespace-nowrap"
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                      <span>Salvar Sucesso</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-5 border-t border-slate-100 flex justify-end">
+                  <button 
+                    onClick={() => setSelectedLog(null)}
+                    className="px-5 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </GlassCard>
             </div>
           )}

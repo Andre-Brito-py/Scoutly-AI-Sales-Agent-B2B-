@@ -50,36 +50,7 @@ async function syncOutreachWithVysify(lead, channel, messageContent) {
 // Pipeline completo de um único lead
 // ---------------------------------------------------------------------------
 async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
-    const provider = new GoogleMapsProvider();
-    const formattedLead = provider.formatLead(rawLead);
-
-    console.log(`\n[Engine] Iniciando pipeline para: ${formattedLead.companyName}`);
-
-    // Deduplicação: ignora se o mesmo lead já foi processado nesta campanha
-    const existing = await new Promise((res, rej) =>
-        db.get(
-            `SELECT id FROM outreach_logs WHERE lead_id IN (
-                SELECT id FROM leads WHERE companyName = $1
-             ) AND campaign_id = $2 LIMIT 1`,
-            [formattedLead.companyName, campaignId],
-            (err, row) => err ? rej(err) : res(row)
-        )
-    ).catch(() => null);
-
-    if (existing) {
-        console.log(`[Engine] Lead "${formattedLead.companyName}" já foi processado nesta campanha. Pulando.`);
-        return;
-    }
-
-    // Salva o lead no banco (ON CONFLICT para evitar duplicatas)
-    db.run(
-        `INSERT INTO leads (id, companyName, contactName, contactRole, email, phone, website, status, importedAt)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'found', $8)
-         ON CONFLICT (id) DO NOTHING`,
-        [formattedLead.id, formattedLead.companyName, formattedLead.contactName,
-         formattedLead.contactRole, formattedLead.email, formattedLead.phone,
-         formattedLead.website, new Date().toISOString()]
-    );
+    console.log(`\n[Engine] Iniciando pipeline para um lead cru...`);
 
     // Carrega dependências (API keys, perfil, produtos, memória)
     let apiKeys = null;
@@ -126,6 +97,68 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     } catch (e) {
         console.warn('[Engine] Erro ao carregar dependências:', e.message);
     }
+
+    // Instancia o provedor correspondente (Apollo ou Maps) e formata
+    let provider;
+    if (searchCriteria?.provider === 'apollo') {
+        const ApolloProvider = require('./providers/ApolloProvider');
+        provider = new ApolloProvider(apiKeys?.apollo);
+    } else {
+        provider = new GoogleMapsProvider(apiKeys?.google_maps_api_key);
+    }
+    const formattedLead = provider.formatLead(rawLead);
+    console.log(`[Engine] Lead formatado: ${formattedLead.companyName} (${formattedLead.contactName || 'Sem decisor'})`);
+
+    // Deduplicação: ignora se o mesmo lead já foi processado nesta campanha
+    const existing = await new Promise((res, rej) =>
+        db.get(
+            `SELECT id FROM outreach_logs WHERE lead_id IN (
+                SELECT id FROM leads WHERE companyName = $1
+             ) AND campaign_id = $2 LIMIT 1`,
+            [formattedLead.companyName, campaignId],
+            (err, row) => err ? rej(err) : res(row)
+        )
+    ).catch(() => null);
+
+    if (existing) {
+        console.log(`[Engine] Lead "${formattedLead.companyName}" já foi processado nesta campanha. Pulando.`);
+        return;
+    }
+
+    // Enriquecimento com Hunter.io (caso tenhamos a chave hunter configurada)
+    if (apiKeys?.hunter && formattedLead.website && formattedLead.website !== 'Desconhecido' && formattedLead.contactName) {
+        console.log(`[Hunter.io] Buscando e-mail corporativo para decisor ${formattedLead.contactName}...`);
+        try {
+            const cleanDomain = formattedLead.website.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0];
+            const nameParts = formattedLead.contactName.trim().split(/\s+/);
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+            if (cleanDomain && firstName) {
+                const hunterUrl = `https://api.hunter.io/v2/email-finder?domain=${cleanDomain}&first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}&api_key=${apiKeys.hunter}`;
+                const hunterRes = await fetch(hunterUrl);
+                if (hunterRes.ok) {
+                    const hunterData = await hunterRes.json();
+                    if (hunterData?.data?.email) {
+                        console.log(`[Hunter.io] Enriquecimento de e-mail com sucesso: ${hunterData.data.email} (Confiança: ${hunterData.data.score}%)`);
+                        formattedLead.email = hunterData.data.email;
+                    }
+                }
+            }
+        } catch (hunterErr) {
+            console.error('[Hunter.io] Falha ao enriquecer lead:', hunterErr.message);
+        }
+    }
+
+    // Salva o lead no banco (ON CONFLICT DO UPDATE para atualizar email)
+    db.run(
+        `INSERT INTO leads (id, companyName, contactName, contactRole, email, phone, website, status, importedAt)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'found', $8)
+         ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, phone = EXCLUDED.phone`,
+        [formattedLead.id, formattedLead.companyName, formattedLead.contactName,
+         formattedLead.contactRole, formattedLead.email, formattedLead.phone,
+         formattedLead.website, new Date().toISOString()]
+    );
 
     // Agentes de IA
     const openaiKey = apiKeys?.openai || null;
@@ -277,7 +310,21 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
         result.status = finalStatus;
     }
 
-    db.run(`UPDATE leads SET status = $1 WHERE id = $2`, [result.status, formattedLead.id]);
+    let nextOutreach = null;
+    const now = new Date();
+    if (result.status === 'sent' || result.status === 'success') {
+        const nextDate = new Date();
+        nextDate.setDate(now.getDate() + 2); // 2 dias para o follow-up Passo 2
+        nextOutreach = nextDate.toISOString();
+        
+        db.run(
+            `UPDATE leads SET status = $1, cadence_step = 1, last_outreach_at = $2, next_outreach_at = $3 WHERE id = $4`,
+            [result.status, now.toISOString(), nextOutreach, formattedLead.id]
+        );
+    } else {
+        db.run(`UPDATE leads SET status = $1 WHERE id = $2`, [result.status, formattedLead.id]);
+    }
+    
     console.log(`[Engine] Status final de disparo para ${formattedLead.companyName} → ${result.status}`);
 
     // Se o disparo foi bem sucedido (sent ou success), sincroniza com o omnichannel do Vysify
@@ -311,7 +358,13 @@ async function runCampaign(campaignId, searchCriteria) {
             );
         } catch (e) { console.warn('[Engine] Erro ao carregar chaves:', e.message); }
 
-        const provider = new GoogleMapsProvider(apiKeys?.google_maps_api_key);
+        let provider;
+        if (searchCriteria?.provider === 'apollo') {
+            const ApolloProvider = require('./providers/ApolloProvider');
+            provider = new ApolloProvider(apiKeys?.apollo);
+        } else {
+            provider = new GoogleMapsProvider(apiKeys?.google_maps_api_key);
+        }
         const rawLeads = await provider.searchLeads(searchCriteria);
         console.log(`[Engine] ${rawLeads.length} leads encontrados.`);
 
@@ -371,12 +424,167 @@ async function stopCampaign(campaignId) {
 }
 
 // ---------------------------------------------------------------------------
+// Processa follow-ups diários automatizados para leads em cadência ativa
+// ---------------------------------------------------------------------------
+async function processScheduledFollowups() {
+    console.log('[Engine] 🕘 Verificando follow-ups de cadência agendados para hoje...');
+
+    try {
+        const nowStr = new Date().toISOString();
+        // Busca leads elegíveis para follow-up (Passo 2 ou Passo 3)
+        // next_outreach_at precisa ser menor ou igual ao momento atual
+        const pendingLeads = await new Promise((res, rej) =>
+            db.all(
+                `SELECT * FROM leads 
+                 WHERE status IN ('sent', 'success') 
+                   AND next_outreach_at IS NOT NULL 
+                   AND next_outreach_at <= $1 
+                   AND cadence_step < 3`,
+                [nowStr],
+                (err, rows) => err ? rej(err) : res(rows)
+            )
+        ).catch(() => []);
+
+        if (!pendingLeads || pendingLeads.length === 0) {
+            console.log('[Engine] Nenhum follow-up de cadência pendente para hoje.');
+            return { processed: 0 };
+        }
+
+        console.log(`[Engine] Encontrados ${pendingLeads.length} leads prontos para follow-up.`);
+
+        // Carrega credenciais
+        const apiKeys = await new Promise((res, rej) =>
+            db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => err ? rej(err) : res(row))
+        ).catch(() => null);
+
+        const tenantProfile = await new Promise((res, rej) =>
+            db.get('SELECT * FROM tenant_profiles LIMIT 1', [], (err, row) => err ? rej(err) : res(row))
+        ).catch(() => null);
+
+        const openaiKey = apiKeys?.openai || null;
+        const copywriter = new CopywriterAgent(openaiKey);
+
+        let processed = 0;
+
+        for (const lead of pendingLeads) {
+            const nextStep = (lead.cadence_step || 1) + 1;
+            console.log(`[Engine] Rodando Follow-up Passo ${nextStep} para o lead: ${lead.companyName}`);
+
+            // 1. Determina o canal de disparo com base nos logs anteriores desse lead
+            const lastLog = await new Promise((res, rej) =>
+                db.get(
+                    `SELECT channel, campaign_id FROM outreach_logs 
+                     WHERE lead_id = $1 AND status = 'sent' 
+                     ORDER BY sent_at DESC LIMIT 1`,
+                    [lead.id],
+                    (err, row) => err ? rej(err) : res(row)
+                )
+            ).catch(() => null);
+
+            const channel = lastLog?.channel || 'whatsapp';
+            const campaignId = lastLog?.campaign_id || null;
+
+            // 2. IA gera mensagem de follow-up contextualizada
+            let promptContext = `Escreva uma mensagem curta e objetiva de follow-up (Passo ${nextStep} de contato) para a empresa ${lead.companyName}, decisor ${lead.contactName || 'Responsável'}.
+            Mensagem inicial enviada anteriormente: "${lead.personalizedMessage || ''}".
+            Crie algo curto e simpático cobrando uma resposta sem ser invasivo ou chato.`;
+            
+            if (channel === 'whatsapp') {
+                promptContext += ` A mensagem será enviada por WhatsApp, então seja breve, amigável, quebre em poucos parágrafos curtos, use emojis com moderação e finalize com uma pergunta convidativa.`;
+            } else {
+                promptContext += ` A mensagem será enviada por E-mail outbound, use um tom profissional e direto.`;
+            }
+
+            const followUpMessage = await copywriter.writeMessage(
+                lead, 
+                "Acompanhamento da abordagem inicial", 
+                `Follow-up passo ${nextStep} cobrando retorno de forma natural.`,
+                'Português',
+                { name: 'N/A', description: '' },
+                '',
+                promptContext,
+                tenantProfile?.calendar_link,
+                tenantProfile?.company_context
+            );
+
+            // 3. Efetua o envio
+            let sendRecipient = lead.phone;
+            if (channel === 'email') sendRecipient = lead.email;
+
+            let curStatus = 'sent';
+            let curError = null;
+
+            if (channel === 'sms' && apiKeys?.twilio_account_sid) {
+                try {
+                    await sendTwilioSMS(apiKeys.twilio_account_sid, apiKeys.twilio_auth_token, apiKeys.twilio_phone_number, sendRecipient, followUpMessage);
+                } catch (err) { curStatus = 'failed'; curError = err.message; }
+            } else if (channel === 'whatsapp' && (apiKeys?.evolution_api_url || apiKeys?.whatsapp_token)) {
+                try {
+                    await sendWhatsApp(sendRecipient, followUpMessage, {
+                        evolutionUrl: apiKeys.evolution_api_url,
+                        evolutionKey: apiKeys.evolution_api_key,
+                        evolutionInstance: apiKeys.evolution_instance
+                    });
+                } catch (err) { curStatus = 'failed'; curError = err.message; }
+            } else if (channel === 'email' && apiKeys?.resend) {
+                try {
+                    process.env.RESEND_API_KEY = apiKeys.resend;
+                    await sendEmail(sendRecipient, `Acompanhamento: Oportunidade para a ${lead.companyName}`, followUpMessage.replace(/\n/g, '<br>'));
+                } catch (err) { curStatus = 'failed'; curError = err.message; }
+            } else {
+                curStatus = 'skipped';
+                curError = `Canal "${channel}" não configurado para follow-up.`;
+            }
+
+            // 4. Registra log
+            db.run(
+                `INSERT INTO outreach_logs (id, lead_id, campaign_id, channel, recipient, message_content, status, error_message, sent_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [`log_fup_${nextStep}_` + Date.now(), lead.id, campaignId, channel, sendRecipient,
+                 followUpMessage, curStatus, curError, new Date().toISOString()]
+            );
+
+            // 5. Agenda o próximo passo (Passo 3) ou finaliza a cadência
+            let nextOutreach = null;
+            if (curStatus === 'sent') {
+                const now = new Date();
+                const nextDate = new Date();
+                nextDate.setDate(now.getDate() + 5); // 5 dias de espera entre Passo 2 e Passo 3
+                nextOutreach = nextDate.toISOString();
+
+                db.run(
+                    `UPDATE leads SET cadence_step = $1, last_outreach_at = $2, next_outreach_at = $3, personalizedMessage = $4 WHERE id = $5`,
+                    [nextStep, now.toISOString(), nextOutreach, followUpMessage, lead.id]
+                );
+
+                // Sincroniza log com o Vysify
+                syncOutreachWithVysify(lead, channel, followUpMessage);
+            }
+
+            processed++;
+            // Pausa de 3 segundos entre disparos de follow-up
+            await sleep(3000);
+        }
+
+        return { processed };
+    } catch (error) {
+        console.error('[Engine] Erro crítico no processador de follow-ups:', error.message);
+        return { error: error.message };
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Chamado pelo endpoint GET /api/campaigns/trigger-scheduled
 // → Acionado pelo cron-jobs.org uma vez por dia
-// → Roda todas as campanhas com status='active'
+// → Roda todas as campanhas com status='active' e processa os follow-ups
 // ---------------------------------------------------------------------------
 async function runScheduledCampaigns() {
-    console.log('[Engine] 🕘 Trigger diário recebido. Verificando campanhas ativas...');
+    console.log('[Engine] 🕘 Trigger diário recebido. Verificando campanhas ativas e follow-ups...');
+
+    // Processa follow-ups de cadência em background
+    processScheduledFollowups().catch(e => {
+        console.error('[Engine] Erro ao rodar processScheduledFollowups:', e.message);
+    });
 
     const activeCampaigns = await new Promise((res, rej) =>
         db.all(
@@ -387,8 +595,8 @@ async function runScheduledCampaigns() {
     ).catch(() => []);
 
     if (!activeCampaigns || activeCampaigns.length === 0) {
-        console.log('[Engine] Nenhuma campanha ativa encontrada.');
-        return { triggered: 0 };
+        console.log('[Engine] Nenhuma campanha ativa pendente.');
+        return { triggered: 0, message: 'Processamento de follow-ups iniciado em background.' };
     }
 
     console.log(`[Engine] ${activeCampaigns.length} campanha(s) ativa(s) encontrada(s).`);
@@ -408,4 +616,4 @@ async function runScheduledCampaigns() {
     return { triggered, campaignIds: activeCampaigns.map(c => c.id) };
 }
 
-module.exports = { startCampaign, stopCampaign, runScheduledCampaigns, runningCampaigns };
+module.exports = { startCampaign, stopCampaign, runScheduledCampaigns, processScheduledFollowups, runningCampaigns };

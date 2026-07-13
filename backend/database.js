@@ -138,6 +138,15 @@ async function initDatabase() {
             console.error('Erro ao adicionar colunas em api_keys:', e.message);
         }
 
+        // Safely add cadence columns to leads table
+        try {
+            await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS cadence_step INTEGER DEFAULT 1`);
+            await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_outreach_at TEXT`);
+            await client.query(`ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_outreach_at TEXT`);
+        } catch (e) {
+            console.error('Erro ao adicionar colunas de cadência em leads:', e.message);
+        }
+
         // Safely add new columns to campaigns table
         try {
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS search_criteria TEXT`);
