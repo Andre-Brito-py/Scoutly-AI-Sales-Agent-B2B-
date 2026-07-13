@@ -1,20 +1,22 @@
 const { Resend } = require('resend');
 require('dotenv').config();
 
-const resend = new Resend(process.env.RESEND_API_KEY || 'fake-key-for-now');
-
 /**
  * Dispara um email utilizando a API do Resend
  */
-async function sendEmail(to, subject, htmlContent) {
-    if (!process.env.RESEND_API_KEY) {
+async function sendEmail(to, subject, htmlContent, credentials = {}) {
+    const apiKey = credentials.apiKey || process.env.RESEND_API_KEY;
+    const fromEmail = credentials.from || 'Scoutly / Vysify <onboarding@resend.dev>';
+
+    if (!apiKey) {
         console.warn('RESEND_API_KEY não configurada. Simulando disparo de e-mail para:', to);
         return { id: 'simulated_email_' + Date.now() };
     }
 
     try {
-        const data = await resend.emails.send({
-            from: 'Scoutly / Vysify <onboarding@resend.dev>', // Email validado no Resend
+        const clientResend = new Resend(apiKey);
+        const data = await clientResend.emails.send({
+            from: fromEmail,
             to: [to],
             subject: subject,
             html: htmlContent

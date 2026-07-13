@@ -347,10 +347,10 @@ app.get('/api/keys', (req, res) => {
 });
 
 app.post('/api/keys', (req, res) => {
-    const { openai, gemini, anthropic, apollo, hunter, resend, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl, vysifyApiKey, evolutionApiUrl, evolutionApiKey, evolutionInstance, googleMapsApiKey } = req.body;
+    const { openai, gemini, anthropic, apollo, hunter, resend, resendFrom, whatsappToken, whatsappInstance, telegramToken, telegramChatId, linkedinCookie, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, vysifyWebhookUrl, vysifyApiKey, evolutionApiUrl, evolutionApiKey, evolutionInstance, googleMapsApiKey } = req.body;
     db.run(
-        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url, vysify_api_key, evolution_api_url, evolution_api_key, evolution_instance, google_maps_api_key)
-         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        `INSERT INTO api_keys (id, openai, gemini, anthropic, apollo, hunter, resend, resend_from, whatsapp_token, whatsapp_instance, telegram_token, telegram_chat_id, linkedin_cookie, twilio_account_sid, twilio_auth_token, twilio_phone_number, vysify_webhook_url, vysify_api_key, evolution_api_url, evolution_api_key, evolution_instance, google_maps_api_key)
+         VALUES ('keys_1', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
          ON CONFLICT(id) DO UPDATE SET 
             openai=excluded.openai,
             gemini=excluded.gemini,
@@ -358,6 +358,7 @@ app.post('/api/keys', (req, res) => {
             apollo=excluded.apollo,
             hunter=excluded.hunter,
             resend=excluded.resend,
+            resend_from=excluded.resend_from,
             whatsapp_token=excluded.whatsapp_token,
             whatsapp_instance=excluded.whatsapp_instance,
             telegram_token=excluded.telegram_token,
@@ -379,6 +380,7 @@ app.post('/api/keys', (req, res) => {
             apollo || null, 
             hunter || null, 
             resend || null, 
+            resendFrom || null,
             whatsappToken || null, 
             whatsappInstance || null, 
             telegramToken || null, 

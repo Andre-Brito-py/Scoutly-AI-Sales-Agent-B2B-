@@ -243,6 +243,7 @@ export default function App() {
     apollo: localStorage.getItem('scoutly_apollo_key') || '',
     hunter: localStorage.getItem('scoutly_hunter_key') || '',
     resend: localStorage.getItem('scoutly_resend_key') || '',
+    resendFrom: localStorage.getItem('scoutly_resend_from') || '',
     whatsappToken: localStorage.getItem('scoutly_whatsapp_token') || '',
     whatsappInstance: localStorage.getItem('scoutly_whatsapp_instance') || '',
     evolutionApiUrl: localStorage.getItem('scoutly_evolution_url') || '',
@@ -274,6 +275,7 @@ export default function App() {
         localStorage.setItem('scoutly_apollo_key', apiKeys.apollo);
         localStorage.setItem('scoutly_hunter_key', apiKeys.hunter);
         localStorage.setItem('scoutly_resend_key', apiKeys.resend);
+        localStorage.setItem('scoutly_resend_from', apiKeys.resendFrom);
         localStorage.setItem('scoutly_whatsapp_token', apiKeys.whatsappToken);
         localStorage.setItem('scoutly_whatsapp_instance', apiKeys.whatsappInstance);
         localStorage.setItem('scoutly_evolution_url', apiKeys.evolutionApiUrl);
@@ -509,6 +511,7 @@ export default function App() {
             apollo: data.apollo || '',
             hunter: data.hunter || '',
             resend: data.resend || '',
+            resendFrom: data.resend_from || '',
             whatsappToken: data.whatsapp_token || '',
             whatsappInstance: data.whatsapp_instance || '',
             evolutionApiUrl: data.evolution_api_url || '',
@@ -2012,6 +2015,17 @@ export default function App() {
                         value={apiKeys.resend}
                         onChange={e => setApiKeys({...apiKeys, resend: e.target.value})}
                         placeholder="re_..."
+                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">E-mail Remetente Resend (Deve estar verificado no Resend)</label>
+                      <input 
+                        type="text" 
+                        value={apiKeys.resendFrom}
+                        onChange={e => setApiKeys({...apiKeys, resendFrom: e.target.value})}
+                        placeholder="Ex: contato@seudominio.com"
                         className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
                       />
                     </div>

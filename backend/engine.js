@@ -243,11 +243,11 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
 
         } else if (ch === 'email' && apiKeys?.resend) {
             try {
-                process.env.RESEND_API_KEY = apiKeys.resend;
                 await sendEmail(
                     currentRecipient,
                     `Oportunidade para a ${formattedLead.companyName}`,
-                    personalizedMessage.replace(/\n/g, '<br>')
+                    personalizedMessage.replace(/\n/g, '<br>'),
+                    { apiKey: apiKeys.resend, from: apiKeys.resend_from }
                 );
             } catch (err) {
                 curStatus = 'failed';
@@ -528,8 +528,12 @@ async function processScheduledFollowups() {
                 } catch (err) { curStatus = 'failed'; curError = err.message; }
             } else if (channel === 'email' && apiKeys?.resend) {
                 try {
-                    process.env.RESEND_API_KEY = apiKeys.resend;
-                    await sendEmail(sendRecipient, `Acompanhamento: Oportunidade para a ${lead.companyName}`, followUpMessage.replace(/\n/g, '<br>'));
+                    await sendEmail(
+                        sendRecipient, 
+                        `Acompanhamento: Oportunidade para a ${lead.companyName}`, 
+                        followUpMessage.replace(/\n/g, '<br>'),
+                        { apiKey: apiKeys.resend, from: apiKeys.resend_from }
+                    );
                 } catch (err) { curStatus = 'failed'; curError = err.message; }
             } else {
                 curStatus = 'skipped';

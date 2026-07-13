@@ -106,6 +106,7 @@ async function initDatabase() {
                 apollo TEXT,
                 hunter TEXT,
                 resend TEXT,
+                resend_from TEXT,
                 whatsapp_token TEXT,
                 whatsapp_instance TEXT,
                 telegram_token TEXT,
@@ -134,6 +135,7 @@ async function initDatabase() {
             await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS evolution_api_key TEXT`);
             await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS evolution_instance TEXT`);
             await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS google_maps_api_key TEXT`);
+            await client.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS resend_from TEXT`);
         } catch (e) {
             console.error('Erro ao adicionar colunas em api_keys:', e.message);
         }
