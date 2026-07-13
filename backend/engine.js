@@ -241,13 +241,18 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
                 curError = err.message; // Pode ser 'NO_WHATSAPP'
             }
 
-        } else if (ch === 'email' && apiKeys?.resend) {
+        } else if (ch === 'email' && (apiKeys?.resend || apiKeys?.vysify_webhook_url)) {
             try {
                 await sendEmail(
                     currentRecipient,
                     `Oportunidade para a ${formattedLead.companyName}`,
                     personalizedMessage.replace(/\n/g, '<br>'),
-                    { apiKey: apiKeys.resend, from: apiKeys.resend_from }
+                    { 
+                        apiKey: apiKeys.resend, 
+                        from: apiKeys.resend_from,
+                        vysifyWebhookUrl: apiKeys.vysify_webhook_url,
+                        vysifyApiKey: apiKeys.vysify_api_key
+                    }
                 );
             } catch (err) {
                 curStatus = 'failed';
@@ -526,13 +531,18 @@ async function processScheduledFollowups() {
                         evolutionInstance: apiKeys.evolution_instance
                     });
                 } catch (err) { curStatus = 'failed'; curError = err.message; }
-            } else if (channel === 'email' && apiKeys?.resend) {
+            } else if (channel === 'email' && (apiKeys?.resend || apiKeys?.vysify_webhook_url)) {
                 try {
                     await sendEmail(
                         sendRecipient, 
                         `Acompanhamento: Oportunidade para a ${lead.companyName}`, 
                         followUpMessage.replace(/\n/g, '<br>'),
-                        { apiKey: apiKeys.resend, from: apiKeys.resend_from }
+                        { 
+                            apiKey: apiKeys.resend, 
+                            from: apiKeys.resend_from,
+                            vysifyWebhookUrl: apiKeys.vysify_webhook_url,
+                            vysifyApiKey: apiKeys.vysify_api_key
+                        }
                     );
                 } catch (err) { curStatus = 'failed'; curError = err.message; }
             } else {

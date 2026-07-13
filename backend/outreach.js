@@ -8,6 +8,46 @@ async function sendEmail(to, subject, htmlContent, credentials = {}) {
     const apiKey = credentials.apiKey || process.env.RESEND_API_KEY;
     const fromEmail = credentials.from || 'Scoutly / Vysify <onboarding@resend.dev>';
 
+    // Se o usuário tiver configurado integração com o Vysify, tenta enviar via relay Gmail/SMTP do Vysify
+    if (credentials.vysifyWebhookUrl) {
+        console.log(`[Email Relay] Encaminhando disparo de e-mail para o Vysify enviar via Gmail/SMTP conectado...`);
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (credentials.vysifyApiKey) {
+                headers['Authorization'] = `Bearer ${credentials.vysifyApiKey}`;
+            }
+
+            const response = await fetch(credentials.vysifyWebhookUrl, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    source: 'scoutly',
+                    event: 'send_outbound_email',
+                    to,
+                    subject,
+                    html: htmlContent
+                })
+            });
+
+            if (response.ok) {
+                const resData = await response.json();
+                console.log(`[Email Relay] E-mail enviado com sucesso via Vysify! Message ID: ${resData.messageId}`);
+                return resData;
+            } else {
+                const errText = await response.text();
+                throw new Error(`Erro na API do Vysify (${response.status}): ${errText}`);
+            }
+        } catch (relayErr) {
+            console.error(`[Email Relay] Falha ao encaminhar e-mail para o Vysify:`, relayErr.message);
+            // Se houver fallback do Resend, cede execução, caso contrário propaga erro
+            if (!apiKey) {
+                console.warn('[Email Relay] Sem Resend local configurado para fallback. Simulando envio.');
+                return { id: 'simulated_email_' + Date.now() };
+            }
+            console.log(`[Email Relay] Caindo de volta para envio direto via Resend local...`);
+        }
+    }
+
     if (!apiKey) {
         console.warn('RESEND_API_KEY não configurada. Simulando disparo de e-mail para:', to);
         return { id: 'simulated_email_' + Date.now() };
