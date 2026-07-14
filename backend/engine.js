@@ -363,6 +363,11 @@ async function runCampaign(campaignId, searchCriteria) {
             );
         } catch (e) { console.warn('[Engine] Erro ao carregar chaves:', e.message); }
 
+        const campaignRow = await new Promise((res, rej) =>
+            db.get(`SELECT limit_daily FROM campaigns WHERE id = $1`, [campaignId], (err, row) => err ? rej(err) : res(row))
+        ).catch(() => null);
+        const limitDaily = campaignRow?.limit_daily || 10;
+
         let provider;
         if (searchCriteria?.provider === 'apollo') {
             const ApolloProvider = require('./providers/ApolloProvider');
@@ -370,7 +375,7 @@ async function runCampaign(campaignId, searchCriteria) {
         } else {
             provider = new GoogleMapsProvider(apiKeys?.google_maps_api_key);
         }
-        const rawLeads = await provider.searchLeads(searchCriteria);
+        const rawLeads = await provider.searchLeads(searchCriteria, limitDaily);
         console.log(`[Engine] ${rawLeads.length} leads encontrados.`);
 
         for (const lead of rawLeads) {

@@ -6,7 +6,7 @@ class ApolloProvider extends LeadProvider {
         this.apiKey = apiKey;
     }
 
-    async searchLeads(criteria) {
+    async searchLeads(criteria, limit = 10) {
         if (!this.apiKey) {
             console.warn('[ApolloProvider] Chave da API do Apollo.io ausente. Retornando contatos simulados.');
             return this.simulateSearch(criteria);
@@ -17,7 +17,7 @@ class ApolloProvider extends LeadProvider {
         queryParams.append('api_key', this.apiKey);
         
         // Limitar quantidade
-        queryParams.append('per_page', '10');
+        queryParams.append('per_page', String(limit));
 
         // Palavras-chave / Segmento
         if (criteria.segment) {

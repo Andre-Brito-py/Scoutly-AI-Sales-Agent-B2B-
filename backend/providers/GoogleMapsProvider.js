@@ -6,7 +6,7 @@ class GoogleMapsProvider extends LeadProvider {
         this.apiKey = apiKey;
     }
 
-    async searchLeads(criteria) {
+    async searchLeads(criteria, limit = 10) {
         if (!this.apiKey) {
             console.warn('[GoogleMapsProvider] Chave da API ausente. Retornando leads simulados.');
             return this.simulateSearch(criteria);
@@ -17,7 +17,7 @@ class GoogleMapsProvider extends LeadProvider {
         const region = [criteria.city, stateLabel, countryLabel].filter(Boolean).join(', ');
         const query = `${criteria.segment} in ${region}`;
 
-        console.log(`[GoogleMapsProvider] Buscando na API oficial: ${query}`);
+        console.log(`[GoogleMapsProvider] Buscando na API oficial: ${query} (limite: ${limit})`);
 
         try {
             // 1. Text Search para achar os lugares
@@ -30,7 +30,7 @@ class GoogleMapsProvider extends LeadProvider {
                 return [];
             }
 
-            const results = searchData.results.slice(0, 10); // Limitar a 10 por rodada para economizar API
+            const results = searchData.results.slice(0, limit); // Limitar dinamicamente para respeitar o limite diário ou padrão
             const enrichedLeads = [];
 
             for (const place of results) {
