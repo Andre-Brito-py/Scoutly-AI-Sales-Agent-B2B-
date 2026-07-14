@@ -29,6 +29,7 @@ import {
   Edit2,
   Trash2,
   Pause,
+  Zap,
   Menu
 } from 'lucide-react';
 
@@ -608,6 +609,40 @@ export default function App() {
       });
     } catch {
       console.log('Erro ao pausar no servidor.');
+    }
+  };
+
+  const runCampaignNow = async (campaignId: string) => {
+    // Optimistic UI status update
+    setCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, status: 'running' } : c));
+    try {
+      const response = await fetch(`${API_BASE}/campaigns/run-now`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        // Refresh status
+        setTimeout(async () => {
+          const res = await fetch(`${API_BASE}/campaigns`);
+          if (res.ok) {
+            const list = await res.json();
+            setCampaigns(list);
+          }
+        }, 3000);
+      } else {
+        alert(data.error || 'Falha ao rodar campanha');
+        // Revert status
+        const res = await fetch(`${API_BASE}/campaigns`);
+        if (res.ok) {
+          const list = await res.json();
+          setCampaigns(list);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro de conexão ao rodar campanha');
     }
   };
 
@@ -1525,6 +1560,16 @@ export default function App() {
                               className="flex items-center justify-center p-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition"
                             >
                               <Pause className="w-4 h-4 text-white fill-white" />
+                            </button>
+                          )}
+
+                          {camp.status !== 'running' && (
+                            <button 
+                              onClick={() => runCampaignNow(camp.id)}
+                              title="Rodar agora (Execução manual)"
+                              className="flex items-center justify-center p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition"
+                            >
+                              <Zap className="w-4 h-4 text-white fill-white" />
                             </button>
                           )}
 

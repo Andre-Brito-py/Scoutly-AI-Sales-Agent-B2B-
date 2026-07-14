@@ -630,4 +630,4 @@ async function runScheduledCampaigns() {
     return { triggered, campaignIds: activeCampaigns.map(c => c.id) };
 }
 
-module.exports = { startCampaign, stopCampaign, runScheduledCampaigns, processScheduledFollowups, runningCampaigns };
+module.exports = { startCampaign, stopCampaign, runScheduledCampaigns, processScheduledFollowups, runningCampaigns, runCampaign };

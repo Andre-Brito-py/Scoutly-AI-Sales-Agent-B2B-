@@ -439,6 +439,33 @@ app.post('/api/campaigns/stop', async (req, res) => {
 });
 
 /**
+ * POST /api/campaigns/run-now
+ * Executa uma campanha imediatamente de forma manual.
+ */
+app.post('/api/campaigns/run-now', async (req, res) => {
+    const { campaignId } = req.body;
+    if (!campaignId) return res.status(400).json({ error: 'campaignId é obrigatório.' });
+    try {
+        const campaign = await new Promise((resolve, reject) => {
+            db.get(`SELECT search_criteria FROM campaigns WHERE id = $1`, [campaignId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        if (!campaign || !campaign.search_criteria) {
+            return res.status(400).json({ error: 'Campanha não encontrada ou sem critérios definidos.' });
+        }
+        const criteria = JSON.parse(campaign.search_criteria);
+        // Dispara execução manual imediatamente em background
+        engine.runCampaign(campaignId, criteria);
+        res.json({ success: true, message: 'Execução manual iniciada com sucesso!' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+/**
  * GET /api/campaigns/trigger-scheduled
  * ─────────────────────────────────────────────────────────────────
  * Este endpoint é chamado pelo cron-jobs.org uma vez por dia.
