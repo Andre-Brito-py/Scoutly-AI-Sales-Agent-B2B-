@@ -2301,7 +2301,7 @@ export default function App() {
 
               <GlassCard className=" overflow-hidden" glow={false}>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full min-w-[900px] text-left border-collapse">
                     <thead>
                       <tr className="border-b border-border bg-muted/30 text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
                         <th className="px-6 py-4.5">Lead</th>
