@@ -613,6 +613,31 @@ export default function App() {
   };
 
   const runCampaignNow = async (campaignId: string) => {
+    // Helper to map DB campaigns to frontend state format
+    const mapCampaigns = (list: any[]) => {
+      return list.map(c => ({
+        id: String(c.id),
+        name: c.name,
+        segment: c.segment,
+        prospectingArea: {
+          countries: (typeof c.countries === 'string') ? (JSON.parse(c.countries || '[]')) : (c.countries || []),
+          states: (typeof c.states === 'string') ? (JSON.parse(c.states || '[]')) : (c.states || []),
+          cities: c.cities || ''
+        },
+        language: c.language,
+        targetProducts: (function() {
+          try { return typeof c.target_product === 'string' ? JSON.parse(c.target_product || '[]') : (c.target_product || []); } catch { return [c.target_product || 'Scoutly Agent Core']; }
+        })(),
+        limitDaily: c.limit_daily,
+        frequency: c.frequency || 'immediate',
+        status: c.status,
+        progress: c.progress,
+        currentStep: c.current_step,
+        searchCriteria: { channel: c.channel || 'whatsapp' },
+        fallbackChannel: c.fallback_channel || 'none'
+      }));
+    };
+
     // Optimistic UI status update
     setCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, status: 'running' } : c));
     try {
@@ -628,7 +653,7 @@ export default function App() {
           const res = await fetch(`${API_BASE}/campaigns`);
           if (res.ok) {
             const list = await res.json();
-            setCampaigns(list);
+            setCampaigns(mapCampaigns(list));
           }
         }, 3000);
       } else {
@@ -637,7 +662,7 @@ export default function App() {
         const res = await fetch(`${API_BASE}/campaigns`);
         if (res.ok) {
           const list = await res.json();
-          setCampaigns(list);
+          setCampaigns(mapCampaigns(list));
         }
       }
     } catch (err) {
