@@ -565,6 +565,27 @@ export default function App() {
 
   // --- SIMULATION OF RUNNING CAMPAIGN ---
   const [runningCampaignId, setRunningCampaignId] = useState<string | null>(null);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+
+  const handleEditCampaign = (camp: Campaign) => {
+    setEditingCampaignId(camp.id);
+    setNewCampaign({
+      name: camp.name,
+      segment: camp.segment,
+      prospectingArea: {
+        countries: camp.prospectingArea?.countries || [],
+        states: camp.prospectingArea?.states || [],
+        cities: camp.prospectingArea?.cities || ''
+      },
+      language: camp.language || 'Português',
+      targetProducts: camp.targetProducts || [],
+      limitDaily: camp.limitDaily || 50,
+      frequency: camp.frequency || 'immediate',
+      searchCriteria: camp.searchCriteria || { channel: 'whatsapp' },
+      fallbackChannel: camp.fallbackChannel || 'none',
+      customInstructions: camp.customInstructions || ''
+    });
+  };
 
   const startCampaign = async (campaignId: string) => {
     const campToStart = campaigns.find(c => c.id === campaignId);
@@ -894,40 +915,93 @@ export default function App() {
     e.preventDefault();
     if (!newCampaign.name || !newCampaign.segment || newCampaign.prospectingArea.countries.length === 0) return;
 
-    const tempId = `c_${Date.now()}`;
-    
-    // Create locally
-    setCampaigns(prev => [...prev, {
-      id: tempId,
-      ...newCampaign,
-      status: 'idle',
-      progress: 0,
-      currentStep: 'Pronto para iniciar'
-    }]);
+    if (editingCampaignId) {
+      // Optimistic local update
+      setCampaigns(prev => prev.map(c => c.id === editingCampaignId ? {
+        ...c,
+        name: newCampaign.name,
+        segment: newCampaign.segment,
+        prospectingArea: newCampaign.prospectingArea,
+        language: newCampaign.language,
+        targetProducts: newCampaign.targetProducts,
+        limitDaily: newCampaign.limitDaily,
+        frequency: newCampaign.frequency,
+        searchCriteria: newCampaign.searchCriteria,
+        fallbackChannel: newCampaign.fallbackChannel,
+        customInstructions: newCampaign.customInstructions
+      } : c));
 
-    // Save to Backend API
-    try {
-      await fetch(`${API_BASE}/campaigns`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: tempId,
-          name: newCampaign.name,
-          segment: newCampaign.segment,
-          countries: newCampaign.prospectingArea.countries,
-          states: newCampaign.prospectingArea.states,
-          cities: newCampaign.prospectingArea.cities,
-          language: newCampaign.language,
-          target_product: JSON.stringify(newCampaign.targetProducts),
-          limit_daily: newCampaign.limitDaily,
-          frequency: newCampaign.frequency,
-          channel: newCampaign.searchCriteria?.channel,
-          fallback_channel: newCampaign.fallbackChannel || 'none',
-          custom_instructions: newCampaign.customInstructions
-        })
-      });
-    } catch {
-      console.log('Campaign saved in frontend sandbox mode');
+      // Save to Backend API
+      try {
+        await fetch(`${API_BASE}/campaigns/${editingCampaignId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newCampaign.name,
+            segment: newCampaign.segment,
+            countries: newCampaign.prospectingArea.countries,
+            states: newCampaign.prospectingArea.states,
+            cities: newCampaign.prospectingArea.cities,
+            language: newCampaign.language,
+            target_product: JSON.stringify(newCampaign.targetProducts),
+            limit_daily: newCampaign.limitDaily,
+            frequency: newCampaign.frequency,
+            channel: newCampaign.searchCriteria?.channel || 'whatsapp',
+            fallback_channel: newCampaign.fallbackChannel || 'none',
+            search_criteria: {
+              segment: newCampaign.segment,
+              countries: newCampaign.prospectingArea.countries,
+              states: newCampaign.prospectingArea.states,
+              cities: newCampaign.prospectingArea.cities,
+              targetProducts: newCampaign.targetProducts,
+              channel: newCampaign.searchCriteria?.channel || 'whatsapp',
+              fallback_channel: newCampaign.fallbackChannel || 'none',
+              language: newCampaign.language,
+              customInstructions: newCampaign.customInstructions || ''
+            }
+          })
+        });
+      } catch (err) {
+        console.error(err);
+      }
+
+      setEditingCampaignId(null);
+    } else {
+      const tempId = `c_${Date.now()}`;
+      
+      // Create locally
+      setCampaigns(prev => [...prev, {
+        id: tempId,
+        ...newCampaign,
+        status: 'idle',
+        progress: 0,
+        currentStep: 'Pronto para iniciar'
+      }]);
+
+      // Save to Backend API
+      try {
+        await fetch(`${API_BASE}/campaigns`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: tempId,
+            name: newCampaign.name,
+            segment: newCampaign.segment,
+            countries: newCampaign.prospectingArea.countries,
+            states: newCampaign.prospectingArea.states,
+            cities: newCampaign.prospectingArea.cities,
+            language: newCampaign.language,
+            target_product: JSON.stringify(newCampaign.targetProducts),
+            limit_daily: newCampaign.limitDaily,
+            frequency: newCampaign.frequency,
+            channel: newCampaign.searchCriteria?.channel,
+            fallback_channel: newCampaign.fallbackChannel || 'none',
+            custom_instructions: newCampaign.customInstructions
+          })
+        });
+      } catch {
+        console.log('Campaign saved in frontend sandbox mode');
+      }
     }
 
     setNewCampaign({
@@ -1227,8 +1301,12 @@ export default function App() {
                 {/* Form */}
                 <GlassCard className="p-7 ">
                   <h3 className="text-sm font-extrabold text-foreground mb-6 flex items-center space-x-2.5 uppercase tracking-wide">
-                    <Plus className="w-4.5 h-4.5 text-indigo-600" />
-                    <span>Nova Campanha Autônoma</span>
+                    {editingCampaignId ? (
+                      <Edit2 className="w-4.5 h-4.5 text-indigo-600" />
+                    ) : (
+                      <Plus className="w-4.5 h-4.5 text-indigo-600" />
+                    )}
+                    <span>{editingCampaignId ? 'Editar Campanha' : 'Nova Campanha Autônoma'}</span>
                   </h3>
 
                   <form onSubmit={handleCreateCampaign} className="space-y-6">
@@ -1514,14 +1592,41 @@ export default function App() {
                       </div>
                     )}
 
-                    <button 
-                      type="submit"
-                      disabled={newCampaign.prospectingArea.countries.length === 0}
-                      className="w-full py-3.5 bg-[#0F172A] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all duration-200 mt-2 shadow-md shadow-slate-900/10 flex items-center justify-center gap-1.5"
-                    >
-                      <Play className="w-3.5 h-3.5 text-white" />
-                      Criar Campanha
-                    </button>
+                    <div className="flex gap-3 mt-2">
+                      {editingCampaignId && (
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setEditingCampaignId(null);
+                            setNewCampaign({
+                              name: '',
+                              segment: '',
+                              prospectingArea: { countries: [], states: [], cities: '' },
+                              language: 'Português',
+                              targetProducts: [],
+                              limitDaily: 50,
+                              frequency: 'immediate',
+                              searchCriteria: { channel: 'whatsapp' },
+                              fallbackChannel: 'none',
+                              customInstructions: ''
+                            });
+                          }}
+                          className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-850 hover:bg-slate-205 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all duration-200 border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1.5"
+                        >
+                          Cancelar Edição
+                        </button>
+                      )}
+                      <button 
+                        type="submit"
+                        disabled={newCampaign.prospectingArea.countries.length === 0}
+                        className={`py-3.5 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-slate-900/10 flex items-center justify-center gap-1.5 ${
+                          editingCampaignId ? "flex-[2] bg-indigo-600 hover:bg-indigo-700" : "w-full bg-[#0F172A] hover:bg-slate-800"
+                        }`}
+                      >
+                        <Play className="w-3.5 h-3.5 text-white" />
+                        {editingCampaignId ? 'Salvar Alterações' : 'Criar Campanha'}
+                      </button>
+                    </div>
                   </form>
                 </GlassCard>
 
@@ -1597,6 +1702,14 @@ export default function App() {
                               <Zap className="w-4 h-4 text-white fill-white" />
                             </button>
                           )}
+
+                          <button 
+                            onClick={() => handleEditCampaign(camp)}
+                            title="Editar campanha"
+                            className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-550 rounded-lg shadow-sm transition"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
 
                           <button 
                             onClick={() => deleteCampaign(camp.id)}
