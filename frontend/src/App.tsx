@@ -163,11 +163,27 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('scoutly_logged_in') === '1');
   const [inputPassword, setInputPassword] = useState('');
   const [loginError, setLoginError] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs' | 'import'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs' | 'import' | 'opportunities'>('dashboard');
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
   const [selectedLog, setSelectedLog] = useState<OutreachLog | null>(null);
   const [isAgentWorking, setIsAgentWorking] = useState(false);
   const [agentStatusText, setAgentStatusText] = useState('');
+  
+  const [intentLeads, setIntentLeads] = useState<any[]>([]);
+  const [socialMatches, setSocialMatches] = useState<any[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [prospectingId, setProspectingId] = useState<string | null>(null);
+
+  const fetchOpportunities = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/opportunities`);
+      const data = await res.json();
+      setIntentLeads(data.intentLeads || []);
+      setSocialMatches(data.socialMatches || []);
+    } catch (e) {
+      console.error('Erro ao carregar oportunidades:', e);
+    }
+  };
 
   // --- CUTE AGENT ANIMATION COMPONENT ---
   const AgentWorkingOverlay = () => {
@@ -536,6 +552,8 @@ export default function App() {
       .then(res => res.json())
       .then(data => setAiMemory(Array.isArray(data) ? data : []))
       .catch(() => console.error('Erro ao carregar memória.'));
+
+    fetchOpportunities();
   }, []);
 
   // Sync profile saving to backend
@@ -1095,6 +1113,7 @@ export default function App() {
               <div className="space-y-1.5">
                 <NavItem icon={TrendingUp} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
                 <NavItem icon={Users} label="Pipeline & CRM" active={activeTab === 'crm'} onClick={() => { setActiveTab('crm'); setIsMobileMenuOpen(false); }} badge={<span className="ml-auto text-[10px] bg-slate-100 text-muted-foreground px-2 py-0.5 rounded-full font-bold border border-border/50">{leads.length}</span>} />
+                <NavItem icon={Target} label="Radar de Intenção" active={activeTab === 'opportunities'} onClick={() => { setActiveTab('opportunities'); setIsMobileMenuOpen(false); }} badge={(intentLeads.length + socialMatches.length) > 0 ? <span className="ml-auto text-[10px] bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold border border-indigo-200/50">{(intentLeads.length + socialMatches.length)}</span> : undefined} />
                 <NavItem icon={MessageSquare} label="Logs de Disparo" active={activeTab === 'logs'} onClick={() => { setActiveTab('logs'); setIsMobileMenuOpen(false); }} />
               </div>
             </div>
@@ -1147,6 +1166,7 @@ export default function App() {
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'campaigns' && 'Campanhas Autônomas'}
               {activeTab === 'crm' && 'Pipeline & CRM'}
+              {activeTab === 'opportunities' && 'Radar de Oportunidades & Intenção'}
               {activeTab === 'products' && 'Catálogo de Produtos'}
               {activeTab === 'profile' && 'Configuração da Startup'}
               {activeTab === 'memory' && 'Memória & Aprendizado'}
@@ -2775,6 +2795,199 @@ export default function App() {
                   </div>
                 </div>
               </GlassCard>
+            </div>
+          )}
+
+          {/* OPPORTUNITIES (GROWTH OPPORTUNITIES FEED) TAB */}
+          {activeTab === 'opportunities' && (
+            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card/40 border border-border p-6 rounded-2xl">
+                <div>
+                  <h3 className="text-base font-black text-foreground tracking-tight flex items-center gap-2">
+                    <Target className="w-5 h-5 text-indigo-500" />
+                    Radar de Oportunidades & Intenção
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1 font-semibold">
+                    Monitoramento em tempo real de contratações corporativas e discussões em redes sociais relevantes para prospecção do Vysify.
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    setIsScanning(true);
+                    try {
+                      const response = await fetch('http://localhost:3001/api/opportunities/scan', { method: 'POST' });
+                      if (response.ok) {
+                        await fetchOpportunities();
+                        alert('Varredura concluída com sucesso!');
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      alert('Falha ao rodar varredura.');
+                    } finally {
+                      setIsScanning(false);
+                    }
+                  }}
+                  disabled={isScanning}
+                  className="py-2.5 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shrink-0 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isScanning ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Procurando Sinais...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      Buscar Novas Vagas & Menções
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Intent Data (Hiring) */}
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      💼 Intent Data (Vagas de Emprego)
+                    </h4>
+                    <span className="text-[10px] bg-slate-100 dark:bg-slate-900 border border-border px-2 py-0.5 rounded-full font-bold">
+                      {intentLeads.length} ativas
+                    </span>
+                  </div>
+
+                  <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                    {intentLeads.length === 0 ? (
+                      <div className="bg-card/30 border border-border border-dashed p-10 rounded-2xl text-center text-xs text-muted-foreground font-semibold">
+                        Nenhuma vaga de emprego com intenção detectada ainda. Clique em "Buscar" acima!
+                      </div>
+                    ) : (
+                      intentLeads.map((item: any) => (
+                        <GlassCard key={item.id} className="p-5 hover:border-indigo-500/30 transition-all duration-300">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <span className="text-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 border border-indigo-200/50 px-2 py-0.5 rounded-full font-bold">
+                                {item.metadata?.intentTrigger?.jobTitle || 'Contratação'}
+                              </span>
+                              <h4 className="text-sm font-extrabold text-foreground mt-2">{item.companyName}</h4>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 font-bold">{item.metadata?.intentTrigger?.location}</p>
+                            </div>
+                            <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">Score: {item.score || 90}</span>
+                          </div>
+
+                          <div className="mt-4 p-3 bg-muted/30 rounded-xl border border-border/50 text-[11px] text-slate-600 dark:text-slate-400 font-semibold leading-relaxed">
+                            <span className="block text-[9px] text-slate-400 uppercase font-black tracking-wider mb-1">Diagnóstico da IA:</span>
+                            {item.metadata?.intentTrigger?.conclusion}
+                          </div>
+
+                          <div className="mt-4 flex items-center justify-between gap-4">
+                            <span className="text-[10px] text-muted-foreground font-bold">Produto sugerido: <strong className="text-indigo-500">{item.metadata?.intentTrigger?.targetProduct || 'Vysify CRM'}</strong></span>
+                            <button
+                              onClick={async () => {
+                                setProspectingId(item.id);
+                                try {
+                                  const response = await fetch('http://localhost:3001/api/opportunities/prospect', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ leadId: item.id })
+                                  });
+                                  if (response.ok) {
+                                    alert('Campanha de prospecção iniciada no WhatsApp e Email!');
+                                    fetch(`${API_BASE}/leads`).then(r => r.json()).then(data => {
+                                      if (Array.isArray(data)) {
+                                        setLeads(data.map(l => ({
+                                          id: String(l.id),
+                                          companyName: l.company_name,
+                                          website: l.website,
+                                          score: l.score || 0,
+                                          scoreReason: l.score_reason || '',
+                                          contactName: l.contact_name || '',
+                                          contactRole: l.contact_role || '',
+                                          status: l.status,
+                                          personalizedMessage: l.personalized_message || ''
+                                        })));
+                                      }
+                                    });
+                                  }
+                                } catch (e) {
+                                  console.error(e);
+                                  alert('Erro ao iniciar prospecção.');
+                                } finally {
+                                  setProspectingId(null);
+                                }
+                              }}
+                              disabled={prospectingId === item.id}
+                              className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900 rounded-lg text-[10px] font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                              {prospectingId === item.id ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  Processando...
+                                </>
+                              ) : (
+                                <>
+                                  <Zap className="w-3.5 h-3.5" />
+                                  Prospectar Agora
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </GlassCard>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Social Listening */}
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      💬 Social Listening (Menções Reddit)
+                    </h4>
+                    <span className="text-[10px] bg-slate-100 dark:bg-slate-900 border border-border px-2 py-0.5 rounded-full font-bold">
+                      {socialMatches.length} ativas
+                    </span>
+                  </div>
+
+                  <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                    {socialMatches.length === 0 ? (
+                      <div className="bg-card/30 border border-border border-dashed p-10 rounded-2xl text-center text-xs text-muted-foreground font-semibold">
+                        Nenhum post sobre CRM ou Suporte detectado nas redes. Clique em "Buscar" acima!
+                      </div>
+                    ) : (
+                      socialMatches.map((item: any) => (
+                        <GlassCard key={item.id} className="p-5 hover:border-indigo-500/30 transition-all duration-300">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <span className="text-[9px] bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400 border border-amber-200/50 px-2 py-0.5 rounded-full font-bold tracking-wide uppercase">
+                                {item.matched_keyword}
+                              </span>
+                              <h4 className="text-xs font-black text-foreground mt-2">{item.author}</h4>
+                              <p className="text-[10px] text-indigo-500 font-bold block mt-0.5">Reddit</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 text-[11px] text-slate-600 dark:text-slate-400 font-semibold leading-relaxed whitespace-pre-line border-l-2 border-border pl-3">
+                            {item.content}
+                          </div>
+
+                          <div className="mt-4 flex items-center justify-end">
+                            <a
+                              href={item.post_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 rounded-lg text-[10px] font-bold transition flex items-center gap-1.5"
+                            >
+                              <ArrowRight className="w-3.5 h-3.5" />
+                              Ver Publicação Original
+                            </a>
+                          </div>
+                        </GlassCard>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

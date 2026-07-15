@@ -171,6 +171,20 @@ async function initDatabase() {
             )
         `);
 
+        // Tabela de Oportunidades Sociais (Social Listening)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS social_matches (
+                id TEXT PRIMARY KEY,
+                platform TEXT NOT NULL,
+                author TEXT,
+                content TEXT,
+                post_url TEXT UNIQUE,
+                matched_keyword TEXT,
+                status TEXT DEFAULT 'pending',
+                notified_at TEXT
+            )
+        `);
+
         console.log('Tabelas inicializadas com sucesso.');
         client.release();
     } catch (err) {

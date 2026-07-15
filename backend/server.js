@@ -7,6 +7,8 @@ const ScoringAgent = require('./agents/ScoringAgent');
 const CopywriterAgent = require('./agents/CopywriterAgent');
 const { sendEmail, sendWhatsApp } = require('./outreach');
 const engine = require('./engine');
+const { scanJobs } = require('./utils/JobScanner');
+const { scanSocial } = require('./utils/SocialScanner');
 
 const app = express();
 app.use(cors());
@@ -354,6 +356,65 @@ app.delete('/api/outreach-logs', (req, res) => {
         });
     });
 });
+
+
+// --- Rotas de AI Revenue Intelligence (Oportunidades & Intent) ---
+app.get('/api/opportunities', (req, res) => {
+    db.all(`SELECT * FROM leads WHERE status = 'intent_detected' ORDER BY importedAt DESC`, [], (err, intentLeads) => {
+        if (err) return res.status(500).json({ error: err.message });
+        db.all(`SELECT * FROM social_matches ORDER BY notified_at DESC`, [], (errSocial, socialMatches) => {
+            if (errSocial) return res.status(500).json({ error: errSocial.message });
+            res.json({
+                intentLeads: intentLeads.map(l => ({
+                    ...l,
+                    metadata: l.website_metadata ? JSON.parse(l.website_metadata) : {}
+                })),
+                socialMatches
+            });
+        });
+    });
+});
+
+app.post('/api/opportunities/scan', async (req, res) => {
+    try {
+        const jobsResult = await scanJobs();
+        const socialResult = await scanSocial();
+        res.json({ success: true, jobsResult, socialResult });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/opportunities/prospect', async (req, res) => {
+    const { leadId } = req.body;
+    if (!leadId) return res.status(400).json({ error: 'leadId é obrigatório' });
+
+    db.get('SELECT * FROM leads WHERE id = $1', [leadId], async (err, lead) => {
+        if (err || !lead) return res.status(404).json({ error: 'Lead não encontrado.' });
+
+        try {
+            db.run(`UPDATE leads SET status = 'found' WHERE id = $1`, [leadId], async (updateErr) => {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+                // Executa em background
+                const searchCriteria = {
+                    segment: 'Hiring/Intent Opportunities',
+                    channel: 'whatsapp',
+                    fallback_channel: 'email',
+                    language: 'Português'
+                };
+
+                // Executa prospecção via campanha dedicada em background
+                engine.runCampaign('intent_campaign', searchCriteria);
+
+                res.json({ success: true, message: 'Prospecção iniciada com sucesso em background.' });
+            });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+});
+
 
 // --- Rotas de Chaves de API ---
 app.get('/api/keys', (req, res) => {
