@@ -1686,13 +1686,13 @@ export default function App() {
                     {newCampaign.frequency === 'daily' && (
                       <div className="p-5 bg-card/60 border border-border rounded-xl space-y-3">
                         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          🕒 Horários de Execução (Selecione um ou mais)
+                          🕒 Horários de Execução Automática (Selecione um ou mais)
                         </label>
                         <p className="text-[10px] text-muted-foreground font-semibold leading-relaxed">
-                          A campanha rodará automaticamente em background nos horários comerciais selecionados abaixo (Baseado no fuso horário do servidor).
+                          Escolha as horas do dia em que a campanha será acionada automaticamente pelo servidor (Fuso horário do servidor).
                         </p>
-                        <div className="flex flex-wrap gap-2 pt-1.5">
-                          {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((hour) => {
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-1.5">
+                          {Array.from({ length: 24 }, (_, i) => i).map((hour) => {
                             const isSelected = (newCampaign.runHours || []).includes(hour);
                             return (
                               <button
@@ -1712,7 +1712,7 @@ export default function App() {
                                     });
                                   }
                                 }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                className={`py-2 rounded-lg text-xs font-bold transition-all border text-center ${
                                   isSelected 
                                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                                     : 'bg-background hover:bg-muted text-foreground border-border'
