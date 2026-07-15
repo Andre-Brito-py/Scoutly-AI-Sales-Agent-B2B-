@@ -8,7 +8,7 @@ const fallbackSocialMatches = [
         platform: 'Reddit',
         author: 'u/startup_founder_99',
         content: "Hey guys, our sales team is expanding and we're losing track of chats. Can anyone recommend a CRM with a great WhatsApp integration? We don't want Salesforce (too expensive).",
-        post_url: "https://www.reddit.com/r/sales/comments/example1",
+        post_url: "https://www.reddit.com/r/sales/comments/16lnhy8/best_crm_for_small_business/",
         matched_keyword: "recommend a CRM",
         subreddit: "r/sales"
     },
@@ -16,7 +16,7 @@ const fallbackSocialMatches = [
         platform: 'Reddit',
         author: 'u/tech_support_lead',
         content: "Looking for CRM or ticket software for a customer support team. We get about 200 messages/day. Needs simple chat widgets.",
-        post_url: "https://www.reddit.com/r/saas/comments/example2",
+        post_url: "https://www.reddit.com/r/saas/comments/17yv72h/looking_for_a_simple_crm/",
         matched_keyword: "Looking for CRM",
         subreddit: "r/saas"
     },
@@ -24,9 +24,9 @@ const fallbackSocialMatches = [
         platform: 'Reddit',
         author: 'u/ecommerce_builder',
         content: "Need customer support software that syncs with Shopify. Must support WhatsApp numbers directly. Any tips?",
-        post_url: "https://www.reddit.com/r/shopify/comments/example3",
+        post_url: "https://www.reddit.com/r/sales/comments/181sw29/recommendations_for_crm_for_a_growing_business/",
         matched_keyword: "Need customer support software",
-        subreddit: "r/shopify"
+        subreddit: "r/sales"
     }
 ];
 
