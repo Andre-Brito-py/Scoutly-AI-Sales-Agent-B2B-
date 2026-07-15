@@ -185,6 +185,17 @@ async function initDatabase() {
             )
         `);
 
+        // Tabela de Inscrições Push (Web Push PWA)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id TEXT PRIMARY KEY,
+                endpoint TEXT UNIQUE NOT NULL,
+                keys_auth TEXT NOT NULL,
+                keys_p256dh TEXT NOT NULL,
+                created_at TEXT
+            )
+        `);
+
         console.log('Tabelas inicializadas com sucesso.');
         client.release();
     } catch (err) {

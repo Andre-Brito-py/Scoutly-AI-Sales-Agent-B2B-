@@ -1,5 +1,6 @@
 const axios = require('axios');
 const db = require('../database');
+const { sendPushNotificationToAll } = require('./PushNotifications');
 
 // Mock fallback listings to guarantee the feature is instantly demonstrable
 const fallbackJobs = [
@@ -137,6 +138,14 @@ async function scanJobs() {
     }
 
     console.log(`[JobScanner] Concluído. ${insertedLeads} novas oportunidades registradas.`);
+    
+    if (insertedLeads > 0) {
+        await sendPushNotificationToAll(
+            '💼 Nova Vaga Detectada!',
+            `Identificamos oportunidades de contratação em ${insertedLeads} nova(s) empresa(s).`
+        ).catch(e => console.error('Erro ao enviar push:', e.message));
+    }
+
     return { detected: jobs.length, imported: insertedLeads };
 }
 

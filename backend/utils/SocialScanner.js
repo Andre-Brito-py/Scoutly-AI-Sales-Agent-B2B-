@@ -1,6 +1,7 @@
 const axios = require('axios');
 const db = require('../database');
 const { sendTelegramNotification } = require('../outreach');
+const { sendPushNotificationToAll } = require('./PushNotifications');
 
 const fallbackSocialMatches = [
     {
@@ -132,6 +133,14 @@ async function scanSocial() {
     }
 
     console.log(`[SocialScanner] Concluído. ${newlyImported} novas oportunidades sociais salvas.`);
+
+    if (newlyImported > 0) {
+        await sendPushNotificationToAll(
+            '💬 Nova Menção Detectada!',
+            `Encontramos ${newlyImported} nova(s) menção(ões) a CRM/Suporte no Reddit.`
+        ).catch(e => console.error('Erro ao enviar push:', e.message));
+    }
+
     return { detected: matches.length, imported: newlyImported };
 }
 

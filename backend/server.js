@@ -416,6 +416,32 @@ app.post('/api/opportunities/prospect', async (req, res) => {
 });
 
 
+// --- Rotas de Web Push PWA ---
+app.get('/api/push/vapid-key', (req, res) => {
+    const { publicKey } = require('./utils/PushNotifications');
+    res.json({ publicKey });
+});
+
+app.post('/api/push/subscribe', (req, res) => {
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+        return res.status(400).json({ error: 'subscription inválida' });
+    }
+
+    const id = 'sub_' + Date.now();
+    db.run(
+        `INSERT INTO push_subscriptions (id, endpoint, keys_auth, keys_p256dh, created_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (endpoint) DO NOTHING`,
+        [id, subscription.endpoint, subscription.keys.auth, subscription.keys.p256dh, new Date().toISOString()],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
+});
+
+
 // --- Rotas de Chaves de API ---
 app.get('/api/keys', (req, res) => {
     db.get('SELECT * FROM api_keys LIMIT 1', [], (err, row) => {

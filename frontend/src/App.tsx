@@ -163,7 +163,59 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('scoutly_logged_in') === '1');
   const [inputPassword, setInputPassword] = useState('');
   const [loginError, setLoginError] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs' | 'import' | 'opportunities'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'campaigns' | 'crm' | 'products' | 'profile' | 'memory' | 'logs' | 'import' | 'opportunities'>(() => {
+    return (localStorage.getItem('scoutly_active_tab') as any) || 'dashboard';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('scoutly_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const interval = setInterval(() => {
+      fetch(`${API_BASE}/leads`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setLeads(data.map(l => ({
+              id: String(l.id),
+              companyName: l.company_name || l.companyName || '',
+              website: l.website || '',
+              score: l.score || 0,
+              scoreReason: l.score_reason || l.scoreReason || '',
+              contactName: l.contact_name || l.contactName || '',
+              contactRole: l.contact_role || l.contactRole || '',
+              status: l.status,
+              personalizedMessage: l.personalized_message || l.personalizedMessage || ''
+            })));
+          }
+        })
+        .catch(err => console.warn('Polling error leads:', err));
+
+      fetch(`${API_BASE}/outreach-logs`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setOutreachLogs(data);
+          }
+        })
+        .catch(err => console.warn('Polling error logs:', err));
+
+      fetch(`${API_BASE}/opportunities`)
+        .then(res => res.json())
+        .then(data => {
+          if (data) {
+            setIntentLeads(data.intentLeads || []);
+            setSocialMatches(data.socialMatches || []);
+          }
+        })
+        .catch(err => console.warn('Polling error opportunities:', err));
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isLoggedIn]);
   const [outreachLogs, setOutreachLogs] = useState<OutreachLog[]>([]);
   const [selectedLog, setSelectedLog] = useState<OutreachLog | null>(null);
   const [isAgentWorking, setIsAgentWorking] = useState(false);
@@ -182,6 +234,54 @@ export default function App() {
       setSocialMatches(data.socialMatches || []);
     } catch (e) {
       console.error('Erro ao carregar oportunidades:', e);
+    }
+  };
+
+  const subscribeToPushNotifications = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('[Push] Notificações push não suportadas neste navegador.');
+        return;
+      }
+      
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Request VAPID public key
+      const keyRes = await fetch(`${API_BASE}/push/vapid-key`);
+      const { publicKey } = await keyRes.json();
+      
+      if (!publicKey) return;
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.warn('[Push] Permissão de notificação negada pelo usuário.');
+        return;
+      }
+
+      // Helper to convert urlBase64ToUint8Array
+      const padding = '='.repeat((4 - publicKey.length % 4) % 4);
+      const base64 = (publicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: outputArray
+      });
+
+      // Register subscription on backend
+      await fetch(`${API_BASE}/push/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription })
+      });
+
+      console.log('[Push] PWA inscrito com sucesso nas notificações push!');
+    } catch (err: any) {
+      console.warn('[Push] Erro ao registrar push notifications:', err?.message || String(err));
     }
   };
 
@@ -554,6 +654,7 @@ export default function App() {
       .catch(() => console.error('Erro ao carregar memória.'));
 
     fetchOpportunities();
+    subscribeToPushNotifications();
   }, []);
 
   // Sync profile saving to backend
@@ -3225,65 +3326,65 @@ export default function App() {
 
           {/* Outreach Log Detail Modal */}
           {selectedLog && (
-            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <GlassCard className="shadow-xl rounded-2xl max-w-2xl w-full p-6 relative">
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+              <GlassCard className="shadow-xl rounded-2xl max-w-2xl w-full p-6 relative border border-border">
                 <button 
                   onClick={() => setSelectedLog(null)}
-                  className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-muted-foreground transition"
+                  className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-foreground transition"
                 >
                   <X className="w-5 h-5" />
                 </button>
-
+ 
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-black text-foreground tracking-tight">
                     {selectedLog.lead?.companyName || 'Empresa Desconhecida'}
                   </h3>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                    selectedLog.channel === 'email' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                    selectedLog.channel === 'whatsapp' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                    'bg-sky-50 text-sky-700 border border-sky-100'
+                    selectedLog.channel === 'email' ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30' :
+                    selectedLog.channel === 'whatsapp' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/30' :
+                    'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/30'
                   }`}>
                     {selectedLog.channel}
                   </span>
                 </div>
-                <span className="text-xs text-slate-400 font-bold block mt-1">
-                  Decisor: {selectedLog.lead?.contactName || 'Sem Contato'} ({selectedLog.lead?.contactRole || 'Gestor'})
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block mt-1.5">
+                  Decisor: <span className="text-slate-800 dark:text-slate-200">{selectedLog.lead?.contactName || 'Sem Contato'}</span> ({selectedLog.lead?.contactRole || 'Gestor'})
                 </span>
-
+ 
                 <div className="mt-6 space-y-5">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-muted/30 rounded-xl border border-border">
-                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Destinatário de Envio</span>
-                      <span className="text-xs font-bold text-slate-700 block mt-1 font-mono">{selectedLog.recipient}</span>
+                    <div className="p-3.5 bg-muted/40 rounded-xl border border-border">
+                      <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Destinatário de Envio</span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block mt-1 font-mono">{selectedLog.recipient}</span>
                     </div>
-                    <div className="p-3 bg-muted/30 rounded-xl border border-border">
-                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Status de Envio</span>
+                    <div className="p-3.5 bg-muted/40 rounded-xl border border-border">
+                      <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Status de Envio</span>
                       {selectedLog.status === 'sent' ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 mt-1">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/30 mt-1">
                           Sucesso
                         </span>
                       ) : (
                         <div className="mt-1">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-100">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-900/30">
                             Falha
                           </span>
                           {selectedLog.error_message && (
-                            <span className="block text-[9px] text-red-655 mt-1 font-semibold">{selectedLog.error_message}</span>
+                            <span className="block text-[9px] text-red-650 dark:text-red-400 mt-1 font-semibold leading-tight">{selectedLog.error_message}</span>
                           )}
                         </div>
                       )}
                     </div>
                   </div>
-
+ 
                   <div>
                     <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">Mensagem Enviada na Íntegra</h4>
-                    <div className="text-xs text-slate-700 leading-relaxed bg-background border border-border p-4.5 rounded-xl font-semibold whitespace-pre-line max-h-[300px] overflow-y-auto">
+                    <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed bg-background border border-border p-4.5 rounded-xl font-medium whitespace-pre-line max-h-[250px] overflow-y-auto shadow-inner">
                       {selectedLog.message_content}
                     </div>
                   </div>
-
-                  <div className="p-3.5 bg-indigo-50/50 border border-indigo-100/60 rounded-xl text-[11px] text-slate-655 flex justify-between items-center gap-3">
-                    <span>
+ 
+                  <div className="p-3.5 bg-indigo-50/30 dark:bg-indigo-950/20 border border-indigo-100/50 dark:border-indigo-900/50 rounded-xl text-[11px] text-indigo-950 dark:text-indigo-200 flex justify-between items-center gap-3">
+                    <span className="font-semibold leading-relaxed">
                       💡 Gostou da mensagem gerada pela IA para este lead? Marque como Sucesso para ensinar o agente.
                     </span>
                     <button 
@@ -3301,7 +3402,7 @@ export default function App() {
                           fetch(`${API_BASE}/memory`).then(r => r.json()).then(data => setAiMemory(data));
                         });
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition whitespace-nowrap shadow-sm text-[10px]"
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
                       <span>Salvar Sucesso</span>
