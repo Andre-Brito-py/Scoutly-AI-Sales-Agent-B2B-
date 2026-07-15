@@ -73,6 +73,7 @@ interface Campaign {
   fallbackChannel?: 'none' | 'email' | 'whatsapp' | 'telegram' | 'sms';
   customInstructions?: string;
   runHours?: number[];
+  sourceType?: 'web_scraping' | 'intent_data' | 'social_listening';
 }
 
 interface Lead {
@@ -465,7 +466,8 @@ export default function App() {
     searchCriteria: { channel: 'whatsapp' },
     fallbackChannel: 'none',
     customInstructions: '',
-    runHours: [9, 13, 16]
+    runHours: [9, 13, 16],
+    sourceType: 'web_scraping'
   });
 
   // Derive available states from selected countries
@@ -583,7 +585,8 @@ export default function App() {
             currentStep: c.current_step,
             searchCriteria: { channel: c.channel || 'whatsapp' },
             fallbackChannel: c.fallback_channel || 'none',
-            runHours: c.run_hours ? (typeof c.run_hours === 'string' ? JSON.parse(c.run_hours) : c.run_hours) : [9, 13, 16]
+            runHours: c.run_hours ? (typeof c.run_hours === 'string' ? JSON.parse(c.run_hours) : c.run_hours) : [9, 13, 16],
+            sourceType: c.source_type || 'web_scraping'
           })));
         }
       })
@@ -706,7 +709,8 @@ export default function App() {
       searchCriteria: camp.searchCriteria || { channel: 'whatsapp' },
       fallbackChannel: camp.fallbackChannel || 'none',
       customInstructions: camp.customInstructions || '',
-      runHours: camp.runHours || [9, 13, 16]
+      runHours: camp.runHours || [9, 13, 16],
+      sourceType: camp.sourceType || 'web_scraping'
     });
   };
 
@@ -779,7 +783,8 @@ export default function App() {
         currentStep: c.current_step,
         searchCriteria: { channel: c.channel || 'whatsapp' },
         fallbackChannel: c.fallback_channel || 'none',
-        runHours: c.run_hours ? (typeof c.run_hours === 'string' ? JSON.parse(c.run_hours) : c.run_hours) : [9, 13, 16]
+        runHours: c.run_hours ? (typeof c.run_hours === 'string' ? JSON.parse(c.run_hours) : c.run_hours) : [9, 13, 16],
+        sourceType: c.source_type || 'web_scraping'
       }));
     };
 
@@ -1052,7 +1057,8 @@ export default function App() {
         frequency: newCampaign.frequency,
         searchCriteria: newCampaign.searchCriteria,
         fallbackChannel: newCampaign.fallbackChannel,
-        customInstructions: newCampaign.customInstructions
+        customInstructions: newCampaign.customInstructions,
+        sourceType: newCampaign.sourceType
       } : c));
 
       // Save to Backend API
@@ -1073,6 +1079,7 @@ export default function App() {
             channel: newCampaign.searchCriteria?.channel || 'whatsapp',
             fallback_channel: newCampaign.fallbackChannel || 'none',
             run_hours: newCampaign.runHours || [9, 13, 16],
+            source_type: newCampaign.sourceType || 'web_scraping',
             search_criteria: {
               segment: newCampaign.segment,
               countries: newCampaign.prospectingArea.countries,
@@ -1122,7 +1129,8 @@ export default function App() {
             channel: newCampaign.searchCriteria?.channel,
             fallback_channel: newCampaign.fallbackChannel || 'none',
             custom_instructions: newCampaign.customInstructions,
-            run_hours: newCampaign.runHours || [9, 13, 16]
+            run_hours: newCampaign.runHours || [9, 13, 16],
+            source_type: newCampaign.sourceType || 'web_scraping'
           })
         });
       } catch {
@@ -1141,7 +1149,8 @@ export default function App() {
       searchCriteria: { channel: 'whatsapp' },
       fallbackChannel: 'none',
       customInstructions: '',
-      runHours: [9, 13, 16]
+      runHours: [9, 13, 16],
+      sourceType: 'web_scraping' as const
     });
     setActiveTab('campaigns');
   };
@@ -1553,6 +1562,41 @@ export default function App() {
                       )}
                     </div>
 
+                    {/* Source Type Selector */}
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">🔍 Origem dos Leads</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        {[
+                          { value: 'web_scraping', icon: '🗺️', label: 'Busca no Google Maps', desc: 'Prospecção ativa de empresas por segmento e região' },
+                          { value: 'intent_data', icon: '💼', label: 'Vagas de Emprego (Intent)', desc: 'Empresas contratando Sales, Suporte ou CS — gatilho de intenção real' },
+                          { value: 'social_listening', icon: '📡', label: 'Escuta em Redes Sociais', desc: 'Posts mencionando dores de CRM e atendimento em comunidades' }
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setNewCampaign({ ...newCampaign, sourceType: opt.value as 'web_scraping' | 'intent_data' | 'social_listening' })}
+                            className={`text-left p-3.5 rounded-xl border transition-all duration-200 ${
+                              (newCampaign.sourceType || 'web_scraping') === opt.value
+                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/25'
+                                : 'bg-background border-border text-foreground hover:border-indigo-400/50 hover:bg-muted/40'
+                            }`}
+                          >
+                            <div className="text-lg mb-1">{opt.icon}</div>
+                            <div className="text-[11px] font-black mb-0.5 leading-tight">{opt.label}</div>
+                            <div className={`text-[9.5px] leading-snug font-medium ${(newCampaign.sourceType || 'web_scraping') === opt.value ? 'text-indigo-200' : 'text-muted-foreground'}`}>{opt.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                      {(newCampaign.sourceType === 'intent_data' || newCampaign.sourceType === 'social_listening') && (
+                        <p className="mt-2 text-[10px] text-indigo-500 font-bold flex items-center gap-1">
+                          <span>ℹ️</span>
+                          {newCampaign.sourceType === 'intent_data'
+                            ? 'Modo Intent: O scanner busca vagas públicas de emprego relacionadas ao segmento. Os leads vão diretamente para o CRM com análise de site e mensagem personalizada.'
+                            : 'Modo Social: O scanner monitora comunidades (HackerNews) por menções a dores de CRM e atendimento. Respostas sugeridas são geradas com IA.'}
+                        </p>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Idioma</label>
@@ -1798,6 +1842,9 @@ export default function App() {
                                 : camp.status === 'paused'
                                 ? 'Pausada'
                                 : 'Aguardando'}
+                            </span>
+                            <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold border bg-muted/50 text-muted-foreground border-border uppercase tracking-wider">
+                              {camp.sourceType === 'intent_data' ? '💼 Intent' : camp.sourceType === 'social_listening' ? '📡 Social' : '🗺️ Web'}
                             </span>
                           </div>
                           

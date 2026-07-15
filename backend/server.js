@@ -279,18 +279,19 @@ app.get('/api/campaigns', (req, res) => {
             ...r,
             countries: r.countries ? JSON.parse(r.countries) : [],
             states: r.states ? JSON.parse(r.states) : [],
-            run_hours: r.run_hours ? JSON.parse(r.run_hours) : [9, 13, 16]
+            run_hours: r.run_hours ? JSON.parse(r.run_hours) : [9, 13, 16],
+            source_type: r.source_type || 'web_scraping'
         }));
         res.json(campaigns);
     });
 });
 
 app.post('/api/campaigns', (req, res) => {
-    const { id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel, fallback_channel, run_hours } = req.body;
+    const { id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel, fallback_channel, run_hours, source_type } = req.body;
     db.run(
-        `INSERT INTO campaigns (id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel, fallback_channel, run_hours) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-        [id, name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel || 'whatsapp', fallback_channel || 'none', JSON.stringify(run_hours || [9, 13, 16])],
+        `INSERT INTO campaigns (id, name, segment, countries, states, cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel, fallback_channel, run_hours, source_type) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+        [id, name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, status, progress, current_step, channel || 'whatsapp', fallback_channel || 'none', JSON.stringify(run_hours || [9, 13, 16]), source_type || 'web_scraping'],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
@@ -300,14 +301,15 @@ app.post('/api/campaigns', (req, res) => {
 
 app.put('/api/campaigns/:id', (req, res) => {
     const { id } = req.params;
-    const { name, segment, countries, states, cities, language, target_product, limit_daily, frequency, channel, fallback_channel, search_criteria, run_hours } = req.body;
+    const { name, segment, countries, states, cities, language, target_product, limit_daily, frequency, channel, fallback_channel, search_criteria, run_hours, source_type } = req.body;
     db.run(
         `UPDATE campaigns 
          SET name = $1, segment = $2, countries = $3, states = $4, cities = $5, 
              language = $6, target_product = $7, limit_daily = $8, frequency = $9, 
-             channel = $10, fallback_channel = $11, search_criteria = $12, run_hours = $13
-         WHERE id = $14`,
-        [name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, channel || 'whatsapp', fallback_channel || 'none', search_criteria ? JSON.stringify(search_criteria) : null, JSON.stringify(run_hours || [9, 13, 16]), id],
+             channel = $10, fallback_channel = $11, search_criteria = $12, run_hours = $13,
+             source_type = $14
+         WHERE id = $15`,
+        [name, segment, JSON.stringify(countries), JSON.stringify(states), cities, language, target_product, limit_daily, frequency, channel || 'whatsapp', fallback_channel || 'none', search_criteria ? JSON.stringify(search_criteria) : null, JSON.stringify(run_hours || [9, 13, 16]), source_type || 'web_scraping', id],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true, message: 'Campanha atualizada com sucesso.' });

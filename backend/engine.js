@@ -6,6 +6,8 @@ const ScoringAgent = require('./agents/ScoringAgent');
 const CopywriterAgent = require('./agents/CopywriterAgent');
 const { sendTelegramNotification, sendTwilioSMS, sendEmail, sendWhatsApp } = require('./outreach');
 const { analyzeWebsite } = require('./utils/WebsiteAnalyzer');
+const { scanJobs } = require('./utils/JobScanner');
+const { scanSocial } = require('./utils/SocialScanner');
 
 // Campanhas em execução no momento (evita execução paralela)
 const runningCampaigns = new Set();
@@ -367,6 +369,31 @@ async function runCampaign(campaignId, searchCriteria) {
         [new Date().toISOString(), campaignId]);
 
     try {
+        // Fetch campaign row with source_type to route appropriately
+        const campaignRow = await new Promise((res, rej) =>
+            db.get(`SELECT limit_daily, source_type FROM campaigns WHERE id = $1`, [campaignId], (err, row) => err ? rej(err) : res(row))
+        ).catch(() => null);
+
+        const sourceType = campaignRow?.source_type || 'web_scraping';
+        console.log(`[Engine] Campanha ${campaignId} com source_type: "${sourceType}"`);
+
+        // ── INTENT DATA (Job Vacancies) ─────────────────────────────────
+        if (sourceType === 'intent_data') {
+            console.log(`[Engine] Executando varredura de vagas de emprego (Intent Data)...`);
+            await scanJobs(searchCriteria?.segment || searchCriteria?.keywords || '');
+            console.log(`[Engine] ✅ Campanha ${campaignId} (intent_data) finalizada.`);
+            return;
+        }
+
+        // ── SOCIAL LISTENING ───────────────────────────────────────────
+        if (sourceType === 'social_listening') {
+            console.log(`[Engine] Executando varredura de menções sociais (Social Listening)...`);
+            await scanSocial(searchCriteria?.segment || searchCriteria?.keywords || '');
+            console.log(`[Engine] ✅ Campanha ${campaignId} (social_listening) finalizada.`);
+            return;
+        }
+
+        // ── WEB SCRAPING (default) ──────────────────────────────────────
         let apiKeys = null;
         try {
             apiKeys = await new Promise((res, rej) =>
@@ -374,9 +401,6 @@ async function runCampaign(campaignId, searchCriteria) {
             );
         } catch (e) { console.warn('[Engine] Erro ao carregar chaves:', e.message); }
 
-        const campaignRow = await new Promise((res, rej) =>
-            db.get(`SELECT limit_daily FROM campaigns WHERE id = $1`, [campaignId], (err, row) => err ? rej(err) : res(row))
-        ).catch(() => null);
         const limitDaily = campaignRow?.limit_daily || 10;
 
         let provider;
@@ -391,11 +415,11 @@ async function runCampaign(campaignId, searchCriteria) {
 
         for (const lead of rawLeads) {
             // Verifica se campanha foi pausada/removida do banco durante execução
-            const campaignRow = await new Promise((res, rej) =>
+            const currentRow = await new Promise((res, rej) =>
                 db.get(`SELECT status FROM campaigns WHERE id = $1`, [campaignId], (err, row) => err ? rej(err) : res(row))
             ).catch(() => null);
 
-            if (!campaignRow || campaignRow.status !== 'active') {
+            if (!currentRow || currentRow.status !== 'active') {
                 console.log(`[Engine] Campanha ${campaignId} foi pausada. Encerrando ciclo.`);
                 break;
             }

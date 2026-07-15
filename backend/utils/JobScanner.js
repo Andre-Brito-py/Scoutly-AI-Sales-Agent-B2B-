@@ -2,6 +2,7 @@ const axios = require('axios');
 const db = require('../database');
 const { sendPushNotificationToAll } = require('./PushNotifications');
 const { generateJobOutreach } = require('../ai');
+const { analyzeWebsite } = require('./WebsiteAnalyzer');
 
 async function scanJobs() {
     console.log('[JobScanner] Iniciando varredura de vagas públicas (Adzuna + The Muse)...');
@@ -88,30 +89,41 @@ async function scanJobs() {
         const cleanCompany = job.company.replace(/[^a-zA-Z0-9]/g, '');
         const leadId = `intent_${cleanCompany.toLowerCase()}_${intent.toLowerCase().replace(/\s+/g, '_')}`;
 
-        const website = `${job.company.toLowerCase().replace(/\s+/g, '')}.com.br`;
-
-        const metadata = {
-            intentTrigger: {
-                jobTitle: job.title,
-                jobUrl: job.url,
-                location: job.location,
-                description: job.description.substring(0, 150) + '...',
-                conclusion: conclusion,
-                targetProduct: targetProduct
-            },
-            whatsappDetected: false,
-            chatOnlineDetected: false,
-            chatProvider: null,
-            crmDetected: null,
-            ecommercePlatform: null,
-            frameworks: [],
-            websiteLanguage: 'Português'
-        };
-
-        const scoreReason = `GATILHO DE INTENÇÃO: Contratando para ${job.title}. ${conclusion}`;
+        // Build the probable website URL for enrichment
+        const website = job.company.toLowerCase().includes('.com')
+            ? job.company.toLowerCase()
+            : `${job.company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com.br`;
 
         try {
-            const pm = await generateJobOutreach(job.company, job.title, conclusion);
+            // Run website tech enrichment in parallel
+            console.log(`[JobScanner] Analisando site de ${job.company} (${website})...`);
+            const techAnalysis = await analyzeWebsite(website).catch(() => ({}));
+
+            const metadata = {
+                intentTrigger: {
+                    jobTitle: job.title,
+                    jobUrl: job.url,
+                    location: job.location,
+                    description: job.description.substring(0, 150) + '...',
+                    conclusion: conclusion,
+                    targetProduct: targetProduct
+                },
+                whatsappDetected: techAnalysis.whatsappDetected || false,
+                chatOnlineDetected: techAnalysis.chatOnlineDetected || false,
+                chatProvider: techAnalysis.chatProvider || null,
+                crmDetected: techAnalysis.crmDetected || null,
+                ecommercePlatform: techAnalysis.ecommercePlatform || null,
+                frameworks: techAnalysis.frameworks || [],
+                websiteLanguage: techAnalysis.websiteLanguage || 'Português'
+            };
+
+            const scoreReason = `GATILHO DE INTENÇÃO: Contratando para ${job.title}. ${conclusion}` +
+                (techAnalysis.crmDetected ? ` | CRM atual: ${techAnalysis.crmDetected}` : '') +
+                (techAnalysis.whatsappDetected ? ' | Tem WhatsApp no site' : ' | Sem WhatsApp no site');
+
+            // Generate personalized message enriched with tech analysis
+            const pm = await generateJobOutreach(job.company, job.title, conclusion, techAnalysis);
+
             await new Promise((res, rej) => {
                 db.run(
                     `INSERT INTO leads (id, companyName, website, score, scoreReason, status, personalizedMessage, importedAt, website_metadata)

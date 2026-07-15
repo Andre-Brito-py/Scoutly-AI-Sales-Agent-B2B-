@@ -157,6 +157,7 @@ async function initDatabase() {
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS fallback_channel TEXT`);
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS last_run_at TEXT`);
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS run_hours TEXT DEFAULT '[]'`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'web_scraping'`);
             
             // Seed defaults for campaigns that have no run_hours
             await client.query(`UPDATE campaigns SET run_hours = '[9, 13, 16]' WHERE run_hours IS NULL OR run_hours = '' OR run_hours = '[]'`);

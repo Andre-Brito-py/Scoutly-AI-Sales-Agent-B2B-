@@ -78,17 +78,38 @@ async function generateSocialReply(author, content, platform) {
     }
 }
 
-async function generateJobOutreach(companyName, jobTitle, conclusion) {
+async function generateJobOutreach(companyName, jobTitle, conclusion, techAnalysis = {}) {
     if (!process.env.OPENAI_API_KEY) {
-        return `Olá equipe da ${companyName},\n\nNotei que vocês abriram uma vaga para "${jobTitle}". Isso geralmente indica crescimento e a necessidade de estruturação dos processos de atendimento ou vendas.\n\nNa Vysify, ajudamos empresas a automatizar e centralizar o atendimento de WhatsApp e canais de vendas. Acredito que faria muito sentido vocês conhecerem nossa solução Closer AI para reduzir a sobrecarga da equipe que estão montando. Podemos agendar uma conversa de 10 minutos?`;
+        let techHook = '';
+        if (techAnalysis.crmDetected) {
+            techHook = ` Como notei que vocês usam o ${techAnalysis.crmDetected}, a integração seria nativa e direta.`;
+        } else if (techAnalysis.whatsappDetected === false) {
+            techHook = ` Como notei que vocês ainda não possuem um canal de atendimento de WhatsApp direto no site, isso seria ideal para capturar novos clientes.`;
+        }
+        return `Olá equipe da ${companyName},\n\nNotei que vocês abriram uma vaga para "${jobTitle}". Isso geralmente indica crescimento e a necessidade de estruturação dos processos de atendimento ou vendas.${techHook}\n\nNa Vysify, ajudamos empresas a automatizar e centralizar o atendimento de WhatsApp e canais de vendas. Acredito que faria muito sentido vocês conhecerem nossa solução Closer AI para reduzir a sobrecarga da equipe que estão montando. Podemos agendar uma conversa de 10 minutos?`;
     }
 
     try {
+        const techInfo = techAnalysis ? `
+        Análise técnica do site da empresa:
+        - WhatsApp de atendimento detectado no site: ${techAnalysis.whatsappDetected ? 'Sim' : 'Não'}
+        - Chat online detectado: ${techAnalysis.chatOnlineDetected ? `Sim (Provedor: ${techAnalysis.chatProvider || 'Geral'})` : 'Não'}
+        - CRM atual em uso: ${techAnalysis.crmDetected || 'Nenhum identificado'}
+        - Plataforma de e-commerce: ${techAnalysis.ecommercePlatform || 'Nenhuma'}
+        - Frameworks/Tecnologias do site: ${techAnalysis.frameworks && techAnalysis.frameworks.length > 0 ? techAnalysis.frameworks.join(', ') : 'Nenhum'}
+        ` : '';
+
         const prompt = `Você é o "Scoutly", o SDR de Inteligência Artificial do Vysify CRM.
         Escreva um e-mail/mensagem de prospecção fria personalizada para a empresa "${companyName}" que está contratando para a vaga de "${jobTitle}".
         
         Use como gancho de entrada o fato de estarem contratando para essa vaga.
         Contexto/Conclusão: ${conclusion}
+        
+        ${techInfo}
+        
+        **Instruções de Personalização baseada em tecnologia**:
+        - Se eles usam um CRM concorrente (como HubSpot, Salesforce, Pipedrive), mencione que o Vysify possui ótimo custo-benefício e migração facilitada.
+        - Se não possuem WhatsApp no site, mencione que implementar isso no canal do time de suporte/vendas aumentará a conversão.
         
         O objetivo do Vysify é:
         - Para vagas de suporte/atendimento: Oferecer o Closer AI Autopilot do Vysify para automatizar chats e WhatsApp.
