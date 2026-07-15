@@ -5,6 +5,7 @@ const PainFinderAgent = require('./agents/PainFinderAgent');
 const ScoringAgent = require('./agents/ScoringAgent');
 const CopywriterAgent = require('./agents/CopywriterAgent');
 const { sendTelegramNotification, sendTwilioSMS, sendEmail, sendWhatsApp } = require('./outreach');
+const { analyzeWebsite } = require('./utils/WebsiteAnalyzer');
 
 // Campanhas em execução no momento (evita execução paralela)
 const runningCampaigns = new Set();
@@ -36,7 +37,8 @@ async function syncOutreachWithVysify(lead, channel, messageContent) {
                         phone: lead.phone,
                         score: lead.score,
                         scoreReason: lead.scoreReason,
-                        personalizedMessage: messageContent
+                        personalizedMessage: messageContent,
+                        websiteMetadata: lead.websiteMetadata || null
                     }
                 })
             });
@@ -150,14 +152,21 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
         }
     }
 
-    // Salva o lead no banco (ON CONFLICT DO UPDATE para atualizar email)
+    // Analisa o website do lead se disponível
+    let websiteMetadata = null;
+    if (formattedLead.website && formattedLead.website !== 'Desconhecido') {
+        websiteMetadata = await analyzeWebsite(formattedLead.website);
+    }
+    const websiteMetadataStr = websiteMetadata ? JSON.stringify(websiteMetadata) : null;
+
+    // Salva o lead no banco (ON CONFLICT DO UPDATE para atualizar email e metadados)
     db.run(
-        `INSERT INTO leads (id, companyName, contactName, contactRole, email, phone, website, status, importedAt)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'found', $8)
-         ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, phone = EXCLUDED.phone`,
+        `INSERT INTO leads (id, companyName, contactName, contactRole, email, phone, website, status, importedAt, website_metadata)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'found', $8, $9)
+         ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, phone = EXCLUDED.phone, website_metadata = EXCLUDED.website_metadata`,
         [formattedLead.id, formattedLead.companyName, formattedLead.contactName,
          formattedLead.contactRole, formattedLead.email, formattedLead.phone,
-         formattedLead.website, new Date().toISOString()]
+         formattedLead.website, new Date().toISOString(), websiteMetadataStr]
     );
 
     // Agentes de IA
@@ -168,7 +177,9 @@ async function processLeadAutomated(rawLead, campaignId, searchCriteria) {
     const scorer = new ScoringAgent(openaiKey, searchCriteria.segment);
     const copywriter = new CopywriterAgent(openaiKey);
 
-    const companySummary = await intelligence.analyzeCompany(formattedLead);
+    formattedLead.websiteMetadata = websiteMetadata;
+
+    const companySummary = await intelligence.analyzeCompany(formattedLead, websiteMetadata);
     const painPoints = await painFinder.findPains(companySummary);
     const { score, strategy } = await scorer.generateStrategy(formattedLead, companySummary, painPoints);
 

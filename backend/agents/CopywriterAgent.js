@@ -23,6 +23,17 @@ class CopywriterAgent {
             calendarBlock = `\n        6. IMPORTANTE: Use este link de calendário como Call to Action (CTA) no final do email: ${calendarLink}\n`;
         }
 
+        let techInstructions = '';
+        if (leadData.websiteMetadata) {
+            const meta = leadData.websiteMetadata;
+            if (meta.crmDetected === 'HubSpot' || meta.crmDetected === 'Salesforce' || meta.chatProvider === 'Intercom' || meta.chatProvider === 'Zendesk Chat') {
+                const compName = meta.crmDetected || meta.chatProvider;
+                techInstructions = `\n        -- DIRETRIZ DE CONCORRÊNCIA --\n        O site do lead está usando a ferramenta: ${compName}.\n        Adicione um argumento de venda elegante sugerindo a migração para a inteligência integrada do Vysify (que automatiza e custa muito menos que o ${compName}).\n`;
+            } else if (meta.whatsappDetected === false) {
+                techInstructions = `\n        -- DIRETRIZ DE AUSÊNCIA DE CANAL --\n        O site do lead NÃO possui botão de atendimento via WhatsApp.\n        Comente suavemente sobre a importância de ter um canal de atendimento rápido via WhatsApp para não perder clientes, sugerindo a implementação fácil com o Vysify.\n`;
+            }
+        }
+
         const prompt = `Você é um Copywriter B2B de Elite (Mago do Outbound).
         Seu objetivo é escrever a primeira mensagem de prospecção para este lead.
         
@@ -47,6 +58,7 @@ class CopywriterAgent {
         -- REGRAS DE OURO (APRENDIDAS COM O PASSADO) --
         ${insightsStr ? insightsStr : 'Nenhuma regra acumulada ainda.'}
         ${customInstructionsBlock}
+        ${techInstructions}
         Regras da Mensagem:
         1. Direto e curto (máximo 100 palavras).
         2. Personalizado na primeira frase usando os dados do Lead.
