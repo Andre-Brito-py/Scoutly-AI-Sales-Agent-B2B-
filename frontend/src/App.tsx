@@ -2935,7 +2935,7 @@ export default function App() {
                   onClick={async () => {
                     setIsScanning(true);
                     try {
-                      const response = await fetch('http://localhost:3001/api/opportunities/scan', { method: 'POST' });
+                      const response = await fetch(`${API_BASE}/opportunities/scan`, { method: 'POST' });
                       if (response.ok) {
                         await fetchOpportunities();
                         alert('Varredura concluída com sucesso!');
@@ -3006,7 +3006,7 @@ export default function App() {
                               onClick={async () => {
                                 setProspectingId(item.id);
                                 try {
-                                  const response = await fetch('http://localhost:3001/api/opportunities/prospect', {
+                                  const response = await fetch(`${API_BASE}/opportunities/prospect`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ leadId: item.id })
