@@ -3,37 +3,11 @@ const db = require('../database');
 const { sendTelegramNotification } = require('../outreach');
 const { sendPushNotificationToAll } = require('./PushNotifications');
 
-const fallbackSocialMatches = [
-    {
-        platform: 'Reddit',
-        author: 'u/startup_founder_99',
-        content: "Hey guys, our sales team is expanding and we're losing track of chats. Can anyone recommend a CRM with a great WhatsApp integration? We don't want Salesforce (too expensive).",
-        post_url: "https://www.reddit.com/r/sales/comments/16lnhy8/best_crm_for_small_business/",
-        matched_keyword: "recommend a CRM",
-        subreddit: "r/sales"
-    },
-    {
-        platform: 'Reddit',
-        author: 'u/tech_support_lead',
-        content: "Looking for CRM or ticket software for a customer support team. We get about 200 messages/day. Needs simple chat widgets.",
-        post_url: "https://www.reddit.com/r/saas/comments/17yv72h/looking_for_a_simple_crm/",
-        matched_keyword: "Looking for CRM",
-        subreddit: "r/saas"
-    },
-    {
-        platform: 'Reddit',
-        author: 'u/ecommerce_builder',
-        content: "Need customer support software that syncs with Shopify. Must support WhatsApp numbers directly. Any tips?",
-        post_url: "https://www.reddit.com/r/sales/comments/181sw29/recommendations_for_crm_for_a_growing_business/",
-        matched_keyword: "Need customer support software",
-        subreddit: "r/sales"
-    }
-];
-
 async function scanSocial() {
-    console.log('[SocialScanner] Iniciando busca por oportunidades em redes sociais (Reddit)...');
+    console.log('[SocialScanner] Iniciando busca por oportunidades em redes sociais (Reddit + HN)...');
     let matches = [];
 
+    // 1. Tentar Reddit API
     try {
         const response = await axios.get('https://www.reddit.com/search.json', {
             params: {
@@ -47,7 +21,7 @@ async function scanSocial() {
             timeout: 5000
         });
 
-        if (response.data && response.data.data && response.data.data.children) {
+        if (response.data && response.data.data && response.data.data.children && response.data.data.children.length > 0) {
             const posts = response.data.data.children;
             for (const post of posts) {
                 const pData = post.data;
@@ -75,12 +49,49 @@ async function scanSocial() {
             console.log(`[SocialScanner] ${matches.length} correspondências encontradas no Reddit.`);
         }
     } catch (err) {
-        console.warn('[SocialScanner] Falha ao raspar Reddit API, usando listagem de contingência:', err.message);
+        console.warn('[SocialScanner] Falha ao raspar Reddit API, tentando Hacker News API:', err.message);
     }
 
+    // 2. Se falhar ou não achar no Reddit, consultar Hacker News Algolia API (Livre, sem rate-limit)
     if (matches.length === 0) {
-        matches = fallbackSocialMatches;
-        console.log(`[SocialScanner] Usando ${matches.length} correspondências de contingência.`);
+        try {
+            const response = await axios.get('https://hn.algolia.com/api/v1/search_by_date', {
+                params: {
+                    query: 'CRM',
+                    tags: 'comment',
+                    hitsPerPage: 50
+                },
+                timeout: 5000
+            });
+
+            if (response.data && response.data.hits) {
+                for (const hit of response.data.hits) {
+                    const text = hit.comment_text || '';
+                    const textLower = text.toLowerCase();
+                    
+                    let matchedKeyword = null;
+                    if (textLower.includes('recommend') || textLower.includes('best') || textLower.includes('looking')) {
+                        matchedKeyword = 'recommend CRM';
+                    }
+
+                    if (matchedKeyword) {
+                        // Strip html tags from Hacker News comments
+                        const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                        matches.push({
+                            platform: 'HackerNews',
+                            author: hit.author,
+                            content: cleanText.substring(0, 300),
+                            post_url: `https://news.ycombinator.com/item?id=${hit.objectID}`,
+                            matched_keyword: matchedKeyword,
+                            subreddit: 'HN/Show HN'
+                        });
+                    }
+                }
+                console.log(`[SocialScanner] ${matches.length} correspondências encontradas no Hacker News.`);
+            }
+        } catch (err) {
+            console.error('[SocialScanner] Falha ao consultar Hacker News API:', err.message);
+        }
     }
 
     let newlyImported = 0;
@@ -137,7 +148,7 @@ async function scanSocial() {
     if (newlyImported > 0) {
         await sendPushNotificationToAll(
             '💬 Nova Menção Detectada!',
-            `Encontramos ${newlyImported} nova(s) menção(ões) a CRM/Suporte no Reddit.`
+            `Encontramos ${newlyImported} nova(s) menção(ões) a CRM/Suporte no ${matches[0]?.platform || 'Reddit'}.`
         ).catch(e => console.error('Erro ao enviar push:', e.message));
     }
 

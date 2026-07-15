@@ -2,44 +2,12 @@ const axios = require('axios');
 const db = require('../database');
 const { sendPushNotificationToAll } = require('./PushNotifications');
 
-// Mock fallback listings to guarantee the feature is instantly demonstrable
-const fallbackJobs = [
-    {
-        title: "Analista de Suporte Técnico Júnior",
-        company: "Hotmart",
-        url: "https://hotmart.com/pt-br/carreiras",
-        location: "Belo Horizonte - MG",
-        description: "Buscamos pessoa para atendimento ao cliente e resolução de chamados técnicos na plataforma."
-    },
-    {
-        title: "Sales Manager (Gerente de Vendas)",
-        company: "Nubank",
-        url: "https://nubank.workable.com/",
-        location: "São Paulo - SP",
-        description: "Responsável por liderar a equipe de vendas de soluções corporativas e parcerias."
-    },
-    {
-        title: "Analista de Customer Success Senior",
-        company: "Stone",
-        url: "https://stone.gupy.io/",
-        location: "Rio de Janeiro - RJ",
-        description: "Foco em garantir o sucesso, retenção e satisfação dos clientes B2B na maquininha."
-    },
-    {
-        title: "Customer Support Specialist",
-        company: "Vindi",
-        url: "https://vindi.gupy.io/",
-        location: "São Paulo - SP",
-        description: "Atendimento multicanal via chat, email e WhatsApp para suporte a faturamentos."
-    }
-];
-
 async function scanJobs() {
-    console.log('[JobScanner] Iniciando varredura de vagas públicas...');
+    console.log('[JobScanner] Iniciando varredura de vagas públicas (Adzuna + The Muse)...');
     let jobs = [];
 
+    // 1. Tentar Adzuna API
     try {
-        // Query Adzuna public API (free tier credentials for BR jobs)
         const response = await axios.get('https://api.adzuna.com/v1/api/jobs/br/search/1', {
             params: {
                 app_id: 'c824c965',
@@ -50,7 +18,7 @@ async function scanJobs() {
             timeout: 5000
         });
 
-        if (response.data && response.data.results) {
+        if (response.data && response.data.results && response.data.results.length > 0) {
             jobs = response.data.results.map(item => ({
                 title: item.title,
                 company: item.company.display_name,
@@ -61,12 +29,33 @@ async function scanJobs() {
             console.log(`[JobScanner] ${jobs.length} vagas recuperadas via API Adzuna.`);
         }
     } catch (err) {
-        console.warn('[JobScanner] Falha ao consultar Adzuna API, usando listagem de contingência:', err.message);
+        console.warn('[JobScanner] Falha ao consultar Adzuna API, tentando The Muse API:', err.message);
     }
 
+    // 2. Se falhar, tentar The Muse API (Sem autenticação, sempre ativa e livre)
     if (jobs.length === 0) {
-        jobs = fallbackJobs;
-        console.log(`[JobScanner] Usando ${jobs.length} vagas de contingência.`);
+        try {
+            const response = await axios.get('https://www.themuse.com/api/public/jobs', {
+                params: {
+                    category: ['Customer Service', 'Sales'],
+                    page: 1
+                },
+                timeout: 5000
+            });
+
+            if (response.data && response.data.results) {
+                jobs = response.data.results.map(item => ({
+                    title: item.name,
+                    company: item.company.name,
+                    url: item.refs.landing_page,
+                    location: item.locations.map(l => l.name).join(', '),
+                    description: item.contents ? item.contents.replace(/<[^>]*>/g, '') : ''
+                }));
+                console.log(`[JobScanner] ${jobs.length} vagas recuperadas via API The Muse.`);
+            }
+        } catch (err) {
+            console.error('[JobScanner] Falha ao consultar The Muse API:', err.message);
+        }
     }
 
     let insertedLeads = 0;
@@ -90,7 +79,6 @@ async function scanJobs() {
             conclusion = 'Foco em pós-venda e retenção. Oferecer Vysify CRM para gestão integrada de relacionamento.';
             targetProduct = 'Vysify CRM';
         } else {
-            // General business trigger
             intent = 'Business Growth';
             conclusion = 'Empresa contratando novos profissionais. Oferecer ecossistema Vysify para estruturação.';
         }
