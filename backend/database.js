@@ -156,8 +156,12 @@ async function initDatabase() {
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS channel TEXT`);
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS fallback_channel TEXT`);
             await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS last_run_at TEXT`);
+            await client.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS run_hours TEXT DEFAULT '[]'`);
+            
+            // Seed defaults for campaigns that have no run_hours
+            await client.query(`UPDATE campaigns SET run_hours = '[9, 13, 16]' WHERE run_hours IS NULL OR run_hours = '' OR run_hours = '[]'`);
         } catch (e) {
-            console.error('Erro ao adicionar colunas em campaigns:', e.message);
+            console.error('Erro ao adicionar colunas/seed em campaigns:', e.message);
         }
 
         // Tabela de Memória & IA (Insights Retidos)

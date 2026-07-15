@@ -646,4 +646,71 @@ async function runScheduledCampaigns() {
     return { triggered, campaignIds: activeCampaigns.map(c => c.id) };
 }
 
+// Start self-contained scheduler checking every 60 seconds
+function startInternalScheduler() {
+    console.log('[Scheduler] Inicializando agendador interno de campanhas (Intervalo de 60s)...');
+    
+    setInterval(async () => {
+        const now = new Date();
+        const curHour = now.getHours();
+        const curMin = now.getMinutes();
+
+        // Run cadence follow-ups daily at 9:00 AM
+        if (curHour === 9 && curMin === 0) {
+            console.log('[Scheduler] 🕘 9:00 AM - Rodando processamento de follow-ups diários...');
+            processScheduledFollowups().catch(e => {
+                console.error('[Scheduler] Erro ao rodar processScheduledFollowups:', e.message);
+            });
+        }
+
+        try {
+            const activeCampaigns = await new Promise((res, rej) => {
+                db.all(
+                    `SELECT id, run_hours, search_criteria, last_run_at FROM campaigns WHERE status = 'active'`,
+                    [],
+                    (err, rows) => err ? rej(err) : res(rows || [])
+                );
+            });
+
+            for (const campaign of activeCampaigns) {
+                let hours = [];
+                try {
+                    hours = JSON.parse(campaign.run_hours || '[]');
+                } catch (e) {
+                    continue;
+                }
+
+                // If this campaign is scheduled to run at the current hour
+                if (hours.includes(curHour)) {
+                    // Check if it already ran in this exact hour of today
+                    const lastRun = campaign.last_run_at ? new Date(campaign.last_run_at) : null;
+                    const alreadyRunThisHour = lastRun && 
+                        lastRun.getDate() === now.getDate() && 
+                        lastRun.getMonth() === now.getMonth() && 
+                        lastRun.getFullYear() === now.getFullYear() &&
+                        lastRun.getHours() === curHour;
+
+                    if (!alreadyRunThisHour) {
+                        console.log(`[Scheduler] ▶ Disparando campanha ${campaign.id} agendada para as ${curHour}h.`);
+                        
+                        let criteria = {};
+                        try {
+                            criteria = JSON.parse(campaign.search_criteria || '{}');
+                        } catch (e) {
+                            console.error(`[Scheduler] Erro ao parsear criteria para campanha ${campaign.id}`);
+                        }
+
+                        runCampaign(campaign.id, criteria);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[Scheduler] Erro no loop do agendador:', err.message);
+        }
+    }, 60000);
+}
+
+// Start scheduler immediately
+startInternalScheduler();
+
 module.exports = { startCampaign, stopCampaign, runScheduledCampaigns, processScheduledFollowups, runningCampaigns, runCampaign };

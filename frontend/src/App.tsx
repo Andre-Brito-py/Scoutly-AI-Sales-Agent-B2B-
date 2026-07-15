@@ -72,6 +72,7 @@ interface Campaign {
   searchCriteria?: { channel?: 'email' | 'whatsapp' | 'telegram' | 'sms' };
   fallbackChannel?: 'none' | 'email' | 'whatsapp' | 'telegram' | 'sms';
   customInstructions?: string;
+  runHours?: number[];
 }
 
 interface Lead {
@@ -463,7 +464,8 @@ export default function App() {
     frequency: 'immediate',
     searchCriteria: { channel: 'whatsapp' },
     fallbackChannel: 'none',
-    customInstructions: ''
+    customInstructions: '',
+    runHours: [9, 13, 16]
   });
 
   // Derive available states from selected countries
@@ -580,7 +582,8 @@ export default function App() {
             progress: c.progress,
             currentStep: c.current_step,
             searchCriteria: { channel: c.channel || 'whatsapp' },
-            fallbackChannel: c.fallback_channel || 'none'
+            fallbackChannel: c.fallback_channel || 'none',
+            runHours: c.run_hours ? (typeof c.run_hours === 'string' ? JSON.parse(c.run_hours) : c.run_hours) : [9, 13, 16]
           })));
         }
       })
@@ -702,7 +705,8 @@ export default function App() {
       frequency: camp.frequency || 'immediate',
       searchCriteria: camp.searchCriteria || { channel: 'whatsapp' },
       fallbackChannel: camp.fallbackChannel || 'none',
-      customInstructions: camp.customInstructions || ''
+      customInstructions: camp.customInstructions || '',
+      runHours: camp.runHours || [9, 13, 16]
     });
   };
 
@@ -774,7 +778,8 @@ export default function App() {
         progress: c.progress,
         currentStep: c.current_step,
         searchCriteria: { channel: c.channel || 'whatsapp' },
-        fallbackChannel: c.fallback_channel || 'none'
+        fallbackChannel: c.fallback_channel || 'none',
+        runHours: c.run_hours ? (typeof c.run_hours === 'string' ? JSON.parse(c.run_hours) : c.run_hours) : [9, 13, 16]
       }));
     };
 
@@ -1067,6 +1072,7 @@ export default function App() {
             frequency: newCampaign.frequency,
             channel: newCampaign.searchCriteria?.channel || 'whatsapp',
             fallback_channel: newCampaign.fallbackChannel || 'none',
+            run_hours: newCampaign.runHours || [9, 13, 16],
             search_criteria: {
               segment: newCampaign.segment,
               countries: newCampaign.prospectingArea.countries,
@@ -1115,7 +1121,8 @@ export default function App() {
             frequency: newCampaign.frequency,
             channel: newCampaign.searchCriteria?.channel,
             fallback_channel: newCampaign.fallbackChannel || 'none',
-            custom_instructions: newCampaign.customInstructions
+            custom_instructions: newCampaign.customInstructions,
+            run_hours: newCampaign.runHours || [9, 13, 16]
           })
         });
       } catch {
@@ -1133,7 +1140,8 @@ export default function App() {
       frequency: 'immediate',
       searchCriteria: { channel: 'whatsapp' },
       fallbackChannel: 'none',
-      customInstructions: ''
+      customInstructions: '',
+      runHours: [9, 13, 16]
     });
     setActiveTab('campaigns');
   };
@@ -1674,41 +1682,46 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Instruções do cron-jobs.org — aparece só quando a frequência é daily */}
+                    {/* Agendador Interno de Horários de Disparo */}
                     {newCampaign.frequency === 'daily' && (
-                      <div className="p-4 bg-violet-50/70 border border-violet-200 rounded-xl">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-base">⏰</span>
-                          <span className="text-xs font-black text-violet-800 uppercase tracking-widest">Configuração do Cron Externo</span>
-                        </div>
-                        <p className="text-[10px] text-violet-700/80 mb-3 leading-relaxed">
-                          Ao salvar esta campanha como <strong>Diária</strong>, configure um job no <strong>cron-jobs.org</strong> para acioná-la automaticamente todos os dias no horário desejado.
+                      <div className="p-5 bg-card/60 border border-border rounded-xl space-y-3">
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          🕒 Horários de Execução (Selecione um ou mais)
+                        </label>
+                        <p className="text-[10px] text-muted-foreground font-semibold leading-relaxed">
+                          A campanha rodará automaticamente em background nos horários comerciais selecionados abaixo (Baseado no fuso horário do servidor).
                         </p>
-                        <div className="space-y-1.5">
-                          <div className="flex items-start gap-2">
-                            <span className="text-violet-500 font-black text-xs mt-0.5">1.</span>
-                            <span className="text-[10px] text-violet-800">
-                              Acesse <strong>cron-jobs.org</strong> → Create cronjob
-                            </span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="text-violet-500 font-black text-xs mt-0.5">2.</span>
-                            <div className="text-[10px] text-violet-800">
-                              URL: <code className="bg-violet-100 px-1 rounded font-mono text-[10px] break-all">GET https://SEU_BACKEND.railway.app/api/campaigns/trigger-scheduled</code>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="text-violet-500 font-black text-xs mt-0.5">3.</span>
-                            <span className="text-[10px] text-violet-800">
-                              Adicione o header: <code className="bg-violet-100 px-1 rounded font-mono text-[10px]">X-Cron-Secret: SEU_CRON_SECRET</code>
-                            </span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span className="text-violet-500 font-black text-xs mt-0.5">4.</span>
-                            <span className="text-[10px] text-violet-800">
-                              Defina o horário (ex: todos os dias às 09:00). O Scoutly buscará e disparará automaticamente.
-                            </span>
-                          </div>
+                        <div className="flex flex-wrap gap-2 pt-1.5">
+                          {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((hour) => {
+                            const isSelected = (newCampaign.runHours || []).includes(hour);
+                            return (
+                              <button
+                                key={hour}
+                                type="button"
+                                onClick={() => {
+                                  const hours = newCampaign.runHours || [];
+                                  if (isSelected) {
+                                    setNewCampaign({
+                                      ...newCampaign,
+                                      runHours: hours.filter(h => h !== hour)
+                                    });
+                                  } else {
+                                    setNewCampaign({
+                                      ...newCampaign,
+                                      runHours: [...hours, hour].sort((a, b) => a - b)
+                                    });
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                  isSelected 
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                    : 'bg-background hover:bg-muted text-foreground border-border'
+                                }`}
+                              >
+                                {String(hour).padStart(2, '0')}:00
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1729,7 +1742,8 @@ export default function App() {
                               frequency: 'immediate',
                               searchCriteria: { channel: 'whatsapp' },
                               fallbackChannel: 'none',
-                              customInstructions: ''
+                              customInstructions: '',
+                              runHours: [9, 13, 16]
                             });
                           }}
                           className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-850 hover:bg-slate-205 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all duration-200 border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1.5"
@@ -1790,6 +1804,11 @@ export default function App() {
                             {camp.fallbackChannel && camp.fallbackChannel !== 'none' && (
                               <span><strong>Fallback:</strong> <span className="text-indigo-650 font-black uppercase">{camp.fallbackChannel}</span></span>
                             )}
+                            {camp.frequency === 'daily' && (
+                               <span className="w-full mt-1.5 flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                                 <strong>🕒 Agendamentos de Disparo:</strong> {camp.runHours && camp.runHours.length > 0 ? camp.runHours.map(h => `${String(h).padStart(2, '0')}:00`).join(', ') : 'Nenhum'}
+                               </span>
+                             )}
                           </div>
                         </div>
 
