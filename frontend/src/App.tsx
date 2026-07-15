@@ -1683,7 +1683,7 @@ export default function App() {
                     </div>
 
                     {/* Agendador Interno de Horários de Disparo */}
-                    {newCampaign.frequency === 'daily' && (
+                    {true && (
                       <div className="p-5 bg-card/60 border border-border rounded-xl space-y-3">
                         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                           🕒 Horários de Execução Automática (Selecione um ou mais)
@@ -1723,6 +1723,11 @@ export default function App() {
                             );
                           })}
                         </div>
+                        {newCampaign.frequency === 'immediate' && (
+                          <p className="text-[10px] text-amber-500 font-extrabold mt-1.5 flex items-center gap-1">
+                            <span>⚠️</span> Nota: Estes horários serão aplicados somente se a Frequência for alterada para "Job Diário".
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -3000,6 +3005,13 @@ export default function App() {
                             {item.metadata?.intentTrigger?.conclusion}
                           </div>
 
+                          <div className="mt-3.5 p-3.5 bg-indigo-50/20 dark:bg-indigo-950/20 rounded-xl border border-indigo-150/40 dark:border-indigo-850/40 text-[11.5px] text-slate-700 dark:text-slate-300 leading-relaxed">
+                            <span className="block text-[9px] text-indigo-650 dark:text-indigo-400 uppercase font-black tracking-wider mb-1.5 flex items-center gap-1">
+                              <span>💬</span> Mensagem de Prospecção Sugerida (E-mail/Whats):
+                            </span>
+                            <p className="italic font-medium">"{item.personalizedMessage || 'Carregando mensagem...'}"</p>
+                          </div>
+
                           <div className="mt-4 flex items-center justify-between gap-4">
                             <span className="text-[10px] text-muted-foreground font-bold">Produto sugerido: <strong className="text-indigo-500">{item.metadata?.intentTrigger?.targetProduct || 'Vysify CRM'}</strong></span>
                             <button
@@ -3089,6 +3101,13 @@ export default function App() {
 
                           <div className="mt-3 text-[11px] text-slate-600 dark:text-slate-400 font-semibold leading-relaxed whitespace-pre-line border-l-2 border-border pl-3">
                             {item.content}
+                          </div>
+
+                          <div className="mt-3.5 p-3.5 bg-amber-50/20 dark:bg-amber-950/20 rounded-xl border border-amber-150/40 dark:border-amber-850/40 text-[11.5px] text-slate-700 dark:text-slate-300 leading-relaxed">
+                            <span className="block text-[9px] text-amber-650 dark:text-amber-400 uppercase font-black tracking-wider mb-1.5 flex items-center gap-1">
+                              <span>💬</span> Resposta Rápida Sugerida (Rede Social):
+                            </span>
+                            <p className="italic font-medium">"{item.suggested_reply || 'Carregando mensagem...'}"</p>
                           </div>
 
                           <div className="mt-4 flex items-center justify-end">

@@ -1,6 +1,7 @@
 const axios = require('axios');
 const db = require('../database');
 const { sendPushNotificationToAll } = require('./PushNotifications');
+const { generateJobOutreach } = require('../ai');
 
 async function scanJobs() {
     console.log('[JobScanner] Iniciando varredura de vagas públicas (Adzuna + The Muse)...');
@@ -110,12 +111,13 @@ async function scanJobs() {
         const scoreReason = `GATILHO DE INTENÇÃO: Contratando para ${job.title}. ${conclusion}`;
 
         try {
+            const pm = await generateJobOutreach(job.company, job.title, conclusion);
             await new Promise((res, rej) => {
                 db.run(
-                    `INSERT INTO leads (id, companyName, website, score, scoreReason, status, importedAt, website_metadata)
-                     VALUES ($1, $2, $3, $4, $5, 'intent_detected', $6, $7)
+                    `INSERT INTO leads (id, companyName, website, score, scoreReason, status, personalizedMessage, importedAt, website_metadata)
+                     VALUES ($1, $2, $3, $4, $5, 'intent_detected', $6, $7, $8)
                      ON CONFLICT (id) DO NOTHING`,
-                    [leadId, job.company, website, 90, scoreReason, new Date().toISOString(), JSON.stringify(metadata)],
+                    [leadId, job.company, website, 90, scoreReason, pm, new Date().toISOString(), JSON.stringify(metadata)],
                     (err) => err ? rej(err) : res()
                 );
             });

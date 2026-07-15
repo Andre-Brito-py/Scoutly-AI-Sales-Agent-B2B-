@@ -50,4 +50,63 @@ async function generateLeadScore(leadData, companyContext) {
     }
 }
 
-module.exports = { generateLeadScore };
+async function generateSocialReply(author, content, platform) {
+    if (!process.env.OPENAI_API_KEY) {
+        return `Olá ${author}, li sua publicação no ${platform} sobre CRM/suporte. Recomendaria muito dar uma olhada no Vysify. Ele tem uma integração nativa fantástica de WhatsApp e é excelente para organizar funis de vendas sem a complexidade ou custo do Salesforce. Se quiser, posso te mostrar uma demonstração rápida!`;
+    }
+
+    try {
+        const prompt = `Você é o "Scoutly", o SDR de Inteligência Artificial do Vysify CRM.
+        Detectamos um post/comentário relevante no ${platform} onde o usuário descreve uma dor ou pede indicação:
+        Autor: ${author}
+        Conteúdo da publicação: "${content}"
+        
+        Sua missão é gerar uma resposta personalizada, amigável, não intrusiva e altamente persuasiva para responder diretamente a essa publicação nas redes sociais.
+        Você deve se posicionar como um especialista ou alguém indicando o Vysify CRM (explicando de forma simples que ele resolve a dor mencionada, como por exemplo, com suporte a WhatsApp, facilidade de uso, ótimo custo-benefício, etc.).
+        Não use linguagem excessivamente corporativa. Seja pessoal, construtivo e prestativo. Máximo de 3 parágrafos.
+        Retorne estritamente o texto da resposta sugerida em português.`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }]
+        });
+
+        return response.choices[0].message.content.trim();
+    } catch (error) {
+        console.error('Erro ao gerar resposta social com OpenAI:', error);
+        return `Olá ${author}, vi seu post sobre CRM. Recomendo muito o Vysify CRM. Ele se integra ao WhatsApp e custa muito menos que o Salesforce.`;
+    }
+}
+
+async function generateJobOutreach(companyName, jobTitle, conclusion) {
+    if (!process.env.OPENAI_API_KEY) {
+        return `Olá equipe da ${companyName},\n\nNotei que vocês abriram uma vaga para "${jobTitle}". Isso geralmente indica crescimento e a necessidade de estruturação dos processos de atendimento ou vendas.\n\nNa Vysify, ajudamos empresas a automatizar e centralizar o atendimento de WhatsApp e canais de vendas. Acredito que faria muito sentido vocês conhecerem nossa solução Closer AI para reduzir a sobrecarga da equipe que estão montando. Podemos agendar uma conversa de 10 minutos?`;
+    }
+
+    try {
+        const prompt = `Você é o "Scoutly", o SDR de Inteligência Artificial do Vysify CRM.
+        Escreva um e-mail/mensagem de prospecção fria personalizada para a empresa "${companyName}" que está contratando para a vaga de "${jobTitle}".
+        
+        Use como gancho de entrada o fato de estarem contratando para essa vaga.
+        Contexto/Conclusão: ${conclusion}
+        
+        O objetivo do Vysify é:
+        - Para vagas de suporte/atendimento: Oferecer o Closer AI Autopilot do Vysify para automatizar chats e WhatsApp.
+        - Para vagas de vendas/CS/gerência: Oferecer o Vysify CRM para organizar funis e contatos.
+        
+        Escreva uma mensagem curta, direta ao ponto, persuasiva, profissional e amigável. Máximo de 3 parágrafos.
+        Retorne estritamente o texto da mensagem sugerida em português.`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }]
+        });
+
+        return response.choices[0].message.content.trim();
+    } catch (error) {
+        console.error('Erro ao gerar mensagem de vaga com OpenAI:', error);
+        return `Olá equipe da ${companyName}, vi a vaga de ${jobTitle}. A Vysify ajuda a acelerar vendas e estruturar o suporte com nosso CRM e automações. Vamos conversar?`;
+    }
+}
+
+module.exports = { generateLeadScore, generateSocialReply, generateJobOutreach };

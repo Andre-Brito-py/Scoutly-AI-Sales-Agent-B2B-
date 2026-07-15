@@ -2,6 +2,7 @@ const axios = require('axios');
 const db = require('../database');
 const { sendTelegramNotification } = require('../outreach');
 const { sendPushNotificationToAll } = require('./PushNotifications');
+const { generateSocialReply } = require('../ai');
 
 async function scanSocial() {
     console.log('[SocialScanner] Iniciando busca por oportunidades em redes sociais (Reddit + HN)...');
@@ -107,13 +108,16 @@ async function scanSocial() {
         const matchId = 'social_' + Buffer.from(match.post_url).toString('base64').substring(0, 16).replace(/[^a-zA-Z0-9]/g, '');
 
         try {
+            // Generate suggested reply
+            const reply = await generateSocialReply(match.author, match.content, match.platform);
+
             // Save to database
             const insertResult = await new Promise((res, rej) => {
                 db.run(
-                    `INSERT INTO social_matches (id, platform, author, content, post_url, matched_keyword, notified_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    `INSERT INTO social_matches (id, platform, author, content, post_url, matched_keyword, suggested_reply, notified_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                      ON CONFLICT (post_url) DO NOTHING`,
-                    [matchId, match.platform, match.author, `${match.subreddit} | ${match.content}`, match.post_url, match.matched_keyword, new Date().toISOString()],
+                    [matchId, match.platform, match.author, `${match.subreddit} | ${match.content}`, match.post_url, match.matched_keyword, reply, new Date().toISOString()],
                     function(err) {
                         if (err) rej(err);
                         else res(this.changes);

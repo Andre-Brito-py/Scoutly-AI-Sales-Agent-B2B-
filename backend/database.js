@@ -164,6 +164,13 @@ async function initDatabase() {
             console.error('Erro ao adicionar colunas/seed em campaigns:', e.message);
         }
 
+        // Safely add columns to social_matches table
+        try {
+            await client.query(`ALTER TABLE social_matches ADD COLUMN IF NOT EXISTS suggested_reply TEXT`);
+        } catch (e) {
+            console.error('Erro ao adicionar colunas em social_matches:', e.message);
+        }
+
         // Tabela de Memória & IA (Insights Retidos)
         await client.query(`
             CREATE TABLE IF NOT EXISTS ai_memory (
@@ -185,6 +192,7 @@ async function initDatabase() {
                 post_url TEXT UNIQUE,
                 matched_keyword TEXT,
                 status TEXT DEFAULT 'pending',
+                suggested_reply TEXT,
                 notified_at TEXT
             )
         `);
