@@ -1431,312 +1431,260 @@ export default function App() {
 
           {/* CAMPAIGNS TAB */}
           {activeTab === 'campaigns' && (
-            <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
-              
-              {/* Campaign Creation & Config */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                {/* Form */}
-                <GlassCard className="p-7 ">
-                  <h3 className="text-sm font-extrabold text-foreground mb-6 flex items-center space-x-2.5 uppercase tracking-wide">
-                    {editingCampaignId ? (
-                      <Edit2 className="w-4.5 h-4.5 text-indigo-600" />
-                    ) : (
-                      <Plus className="w-4.5 h-4.5 text-indigo-600" />
-                    )}
-                    <span>{editingCampaignId ? 'Editar Campanha' : 'Nova Campanha Autônoma'}</span>
-                  </h3>
+            <div className="max-w-7xl mx-auto w-full animate-fadeIn">
 
-                  <form onSubmit={handleCreateCampaign} className="space-y-6">
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nome da Campanha</label>
-                      <input 
-                        type="text" 
-                        value={newCampaign.name}
-                        onChange={e => setNewCampaign({...newCampaign, name: e.target.value})}
-                        placeholder="Ex: SaaS Growth São Paulo"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
-                        required
-                      />
-                    </div>
+              {/* Page Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-black text-foreground tracking-tight">Campanhas Autônomas</h2>
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">Configure e dispare campanhas de prospecção com agentes de IA.</p>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 font-bold">
+                    {campaigns.filter(c => c.status === 'active' || c.status === 'running').length} Ativas
+                  </span>
+                  <span className="text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground border border-border font-bold">
+                    {campaigns.length} Total
+                  </span>
+                </div>
+              </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Segmento Alvo</label>
-                      <input 
-                        type="text" 
-                        value={newCampaign.segment}
-                        onChange={e => setNewCampaign({...newCampaign, segment: e.target.value})}
-                        placeholder="Ex: Agências de Tecnologia, Clínicas Estéticas"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400" 
-                        required
-                      />
-                    </div>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-                    {/* ── GEO-TARGETING ── */}
-                    <div className="border border-border rounded-2xl p-5 space-y-4 bg-muted/30/50">
-                      <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">📍 Área de Prospecção</span>
-
-                      {/* Countries */}
+                {/* ─── LEFT: Form ─────────────────────────────── */}
+                <div className="lg:col-span-2">
+                  <GlassCard className="overflow-hidden">
+                    {/* Form Header */}
+                    <div className={`px-6 py-4 border-b border-border flex items-center gap-3 ${editingCampaignId ? 'bg-indigo-600/5' : ''}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingCampaignId ? 'bg-indigo-600/10' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                        {editingCampaignId ? <Edit2 className="w-4 h-4 text-indigo-600" /> : <Plus className="w-4 h-4 text-foreground" />}
+                      </div>
                       <div>
-                        <label className="block text-xs font-bold text-muted-foreground mb-2.5">Países <span className="text-slate-400 font-medium">(selecione um ou mais)</span></label>
-                        <div className="flex flex-wrap gap-2">
-                          {Object.entries(COUNTRY_DATA).map(([code, { label, flag }]) => (
+                        <h3 className="text-sm font-black text-foreground">{editingCampaignId ? 'Editar Campanha' : 'Nova Campanha'}</h3>
+                        <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{editingCampaignId ? 'Modifique os parâmetros abaixo' : 'Configure o agente de prospecção'}</p>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleCreateCampaign} className="divide-y divide-border/60">
+
+                      {/* Section 1: Basics */}
+                      <div className="px-6 py-5 space-y-4">
+                        <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">01 · Identificação</p>
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            value={newCampaign.name}
+                            onChange={e => setNewCampaign({...newCampaign, name: e.target.value})}
+                            placeholder="Nome da campanha"
+                            className="w-full bg-muted/30 border border-border/60 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-muted-foreground/50 font-medium"
+                            required
+                          />
+                          <input
+                            type="text"
+                            value={newCampaign.segment}
+                            onChange={e => setNewCampaign({...newCampaign, segment: e.target.value})}
+                            placeholder="Segmento alvo (ex: Agências SaaS, Clínicas)"
+                            className="w-full bg-muted/30 border border-border/60 rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-muted-foreground/50 font-medium"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* Section 2: Source Type */}
+                      <div className="px-6 py-5 space-y-3">
+                        <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">02 · Origem dos Leads</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { value: 'web_scraping', icon: '🗺️', label: 'Google Maps' },
+                            { value: 'intent_data', icon: '💼', label: 'Vagas (Intent)' },
+                            { value: 'social_listening', icon: '📡', label: 'Redes Sociais' }
+                          ].map(opt => (
                             <button
-                              key={code}
+                              key={opt.value}
                               type="button"
-                              onClick={() => toggleCountry(code)}
-                              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all duration-150 shadow-sm ${
-                                newCampaign.prospectingArea.countries.includes(code)
-                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                                  : 'bg-card border-border text-muted-foreground hover:border-slate-300 hover:text-foreground'
+                              onClick={() => setNewCampaign({ ...newCampaign, sourceType: opt.value as 'web_scraping' | 'intent_data' | 'social_listening' })}
+                              className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border text-center transition-all duration-200 ${
+                                (newCampaign.sourceType || 'web_scraping') === opt.value
+                                  ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/25'
+                                  : 'bg-muted/30 border-border/60 text-foreground hover:border-indigo-400/40 hover:bg-muted/50'
                               }`}
                             >
-                              <span>{flag}</span>
-                              <span>{label}</span>
+                              <span className="text-base">{opt.icon}</span>
+                              <span className="text-[10px] font-bold leading-tight">{opt.label}</span>
                             </button>
                           ))}
                         </div>
                       </div>
 
-                      {/* States */}
-                      {availableStates.length > 0 && (
+                      {/* Section 3: Geo */}
+                      <div className="px-6 py-5 space-y-4">
+                        <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">03 · Área de Prospecção</p>
+
+                        {/* Countries — compact grid */}
                         <div>
-                          <label className="block text-xs font-bold text-muted-foreground mb-2.5">
-                            Estado / Província <span className="text-slate-400 font-medium">(opcional)</span>
-                          </label>
-                          <div className="max-h-40 overflow-y-auto pr-1 space-y-3.5 custom-scroll">
-                            {newCampaign.prospectingArea.countries.map(code => (
-                              COUNTRY_DATA[code]?.states.length ? (
-                                <div key={code} className="border-t border-border/60 pt-2.5 first:border-0 first:pt-0">
-                                  <span className="text-[9px] font-black text-slate-400 uppercase block mb-2">{COUNTRY_DATA[code].flag} {COUNTRY_DATA[code].label}</span>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {COUNTRY_DATA[code].states.map(state => (
-                                      <button
-                                        key={state}
-                                        type="button"
-                                        onClick={() => toggleState(state)}
-                                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all duration-150 ${
-                                          newCampaign.prospectingArea.states.includes(state)
-                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                                            : 'bg-card border-border text-muted-foreground hover:text-foreground'
-                                        }`}
-                                      >
-                                        {state}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : null
+                          <p className="text-[10px] font-bold text-muted-foreground mb-2">Países</p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {Object.entries(COUNTRY_DATA).map(([code, { label, flag }]) => (
+                              <button
+                                key={code}
+                                type="button"
+                                onClick={() => toggleCountry(code)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold border transition-all duration-150 ${
+                                  newCampaign.prospectingArea.countries.includes(code)
+                                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                                    : 'bg-muted/30 border-border/60 text-muted-foreground hover:border-indigo-400/40 hover:text-foreground'
+                                }`}
+                              >
+                                <span className="text-sm">{flag}</span>
+                                <span className="truncate">{label}</span>
+                              </button>
                             ))}
                           </div>
                         </div>
-                      )}
 
-                      {/* Cities */}
-                      {newCampaign.prospectingArea.countries.length > 0 && (
-                        <div>
-                          <label className="block text-xs font-bold text-muted-foreground mb-2.5">
-                            Cidades <span className="text-slate-400 font-medium">(opcional, separadas por vírgula)</span>
-                          </label>
-                          <input 
-                            type="text" 
+                        {/* States — only if country selected */}
+                        {availableStates.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground mb-2">Estados <span className="font-normal opacity-60">(opcional)</span></p>
+                            <div className="max-h-32 overflow-y-auto space-y-2 custom-scroll">
+                              {newCampaign.prospectingArea.countries.map(code =>
+                                COUNTRY_DATA[code]?.states.length ? (
+                                  <div key={code}>
+                                    <p className="text-[9px] font-black text-muted-foreground/60 uppercase mb-1">{COUNTRY_DATA[code].flag} {COUNTRY_DATA[code].label}</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {COUNTRY_DATA[code].states.map(state => (
+                                        <button
+                                          key={state}
+                                          type="button"
+                                          onClick={() => toggleState(state)}
+                                          className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-all ${
+                                            newCampaign.prospectingArea.states.includes(state)
+                                              ? 'bg-indigo-600 border-indigo-500 text-white'
+                                              : 'bg-muted/30 border-border/60 text-muted-foreground hover:text-foreground'
+                                          }`}
+                                        >
+                                          {state}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Cities */}
+                        {newCampaign.prospectingArea.countries.length > 0 && (
+                          <input
+                            type="text"
                             value={newCampaign.prospectingArea.cities}
                             onChange={e => setNewCampaign({...newCampaign, prospectingArea: {...newCampaign.prospectingArea, cities: e.target.value}})}
-                            placeholder="Ex: São Paulo, Campinas, Rio de Janeiro"
-                            className="w-full bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-indigo-500 placeholder:text-slate-400"
+                            placeholder="Cidades (opcional, separadas por vírgula)"
+                            className="w-full bg-muted/30 border border-border/60 rounded-xl px-4 py-2.5 text-[11px] text-foreground focus:outline-none focus:border-indigo-500 transition placeholder:text-muted-foreground/50 font-medium"
                           />
-                        </div>
-                      )}
+                        )}
 
-                      {/* Area Summary */}
-                      {newCampaign.prospectingArea.countries.length > 0 && (
-                        <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 shadow-sm">
-                          <span className="text-[10px] font-black text-indigo-600 uppercase block mb-1">Escopo configurado</span>
-                          <p className="text-xs text-slate-650 leading-relaxed font-semibold">
-                            {buildRegionLabel(newCampaign.prospectingArea)}
-                          </p>
-                          {newCampaign.prospectingArea.states.length === 0 && (
-                            <span className="text-[10px] text-amber-600 mt-1.5 block font-bold">⚠ Sem estado selecionado: agentes atuarão no país inteiro</span>
+                        {/* Scope summary pill */}
+                        {newCampaign.prospectingArea.countries.length > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-indigo-600/8 border border-indigo-400/20 rounded-lg">
+                            <span className="text-indigo-500">📍</span>
+                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold leading-snug truncate">{buildRegionLabel(newCampaign.prospectingArea)}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Section 4: Channel + Config */}
+                      <div className="px-6 py-5 space-y-4">
+                        <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">04 · Canal & Configurações</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Idioma</p>
+                            <select
+                              value={newCampaign.language}
+                              onChange={e => setNewCampaign({...newCampaign, language: e.target.value})}
+                              className="w-full bg-muted/30 border border-border/60 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 transition font-medium"
+                            >
+                              <option value="Português">Português</option>
+                              <option value="Inglês">Inglês</option>
+                              <option value="Espanhol">Espanhol</option>
+                              <option value="Alemão">Alemão</option>
+                              <option value="Francês">Francês</option>
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Limite Diário</p>
+                            <input
+                              type="number"
+                              value={newCampaign.limitDaily}
+                              onChange={e => setNewCampaign({...newCampaign, limitDaily: parseInt(e.target.value) || 50})}
+                              className="w-full bg-muted/30 border border-border/60 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 transition font-medium"
+                            />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Canal Principal</p>
+                            <select
+                              value={newCampaign.searchCriteria?.channel || 'whatsapp'}
+                              onChange={e => setNewCampaign({ ...newCampaign, searchCriteria: { ...newCampaign.searchCriteria!, channel: e.target.value as 'email' | 'whatsapp' | 'telegram' | 'sms' } })}
+                              className="w-full bg-muted/30 border border-border/60 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 transition font-medium"
+                            >
+                              <option value="whatsapp">📱 WhatsApp</option>
+                              <option value="sms">💬 SMS</option>
+                              <option value="telegram">✈️ Telegram</option>
+                              <option value="email">📧 E-mail</option>
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Frequência</p>
+                            <select
+                              value={newCampaign.frequency}
+                              onChange={e => setNewCampaign({...newCampaign, frequency: e.target.value as 'immediate' | 'daily'})}
+                              className="w-full bg-muted/30 border border-border/60 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 transition font-medium"
+                            >
+                              <option value="immediate">Rodar Agora (1x)</option>
+                              <option value="daily">Job Diário</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Products */}
+                        {products.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground mb-2">Produtos a divulgar</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {products.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const list = newCampaign.targetProducts || [];
+                                    setNewCampaign({...newCampaign, targetProducts: list.includes(p.name) ? list.filter(n => n !== p.name) : [...list, p.name]});
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
+                                    newCampaign.targetProducts?.includes(p.name)
+                                      ? 'bg-indigo-600 border-indigo-500 text-white'
+                                      : 'bg-muted/30 border-border/60 text-muted-foreground hover:text-foreground'
+                                  }`}
+                                >
+                                  {p.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Section 5: Schedule Hours */}
+                      <div className="px-6 py-5 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">05 · Horários de Disparo</p>
+                          {newCampaign.frequency === 'immediate' && (
+                            <span className="text-[9px] text-amber-500 font-bold">⚠ Aplica-se ao Job Diário</span>
                           )}
                         </div>
-                      )}
-                    </div>
-
-                    {/* Source Type Selector */}
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">🔍 Origem dos Leads</label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        {[
-                          { value: 'web_scraping', icon: '🗺️', label: 'Busca no Google Maps', desc: 'Prospecção ativa de empresas por segmento e região' },
-                          { value: 'intent_data', icon: '💼', label: 'Vagas de Emprego (Intent)', desc: 'Empresas contratando Sales, Suporte ou CS — gatilho de intenção real' },
-                          { value: 'social_listening', icon: '📡', label: 'Escuta em Redes Sociais', desc: 'Posts mencionando dores de CRM e atendimento em comunidades' }
-                        ].map(opt => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setNewCampaign({ ...newCampaign, sourceType: opt.value as 'web_scraping' | 'intent_data' | 'social_listening' })}
-                            className={`text-left p-3.5 rounded-xl border transition-all duration-200 ${
-                              (newCampaign.sourceType || 'web_scraping') === opt.value
-                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/25'
-                                : 'bg-background border-border text-foreground hover:border-indigo-400/50 hover:bg-muted/40'
-                            }`}
-                          >
-                            <div className="text-lg mb-1">{opt.icon}</div>
-                            <div className="text-[11px] font-black mb-0.5 leading-tight">{opt.label}</div>
-                            <div className={`text-[9.5px] leading-snug font-medium ${(newCampaign.sourceType || 'web_scraping') === opt.value ? 'text-indigo-200' : 'text-muted-foreground'}`}>{opt.desc}</div>
-                          </button>
-                        ))}
-                      </div>
-                      {(newCampaign.sourceType === 'intent_data' || newCampaign.sourceType === 'social_listening') && (
-                        <p className="mt-2 text-[10px] text-indigo-500 font-bold flex items-center gap-1">
-                          <span>ℹ️</span>
-                          {newCampaign.sourceType === 'intent_data'
-                            ? 'Modo Intent: O scanner busca vagas públicas de emprego relacionadas ao segmento. Os leads vão diretamente para o CRM com análise de site e mensagem personalizada.'
-                            : 'Modo Social: O scanner monitora comunidades (HackerNews) por menções a dores de CRM e atendimento. Respostas sugeridas são geradas com IA.'}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Idioma</label>
-                        <select 
-                          value={newCampaign.language}
-                          onChange={e => setNewCampaign({...newCampaign, language: e.target.value})}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
-                        >
-                          <option value="Português">Português</option>
-                          <option value="Inglês">Inglês</option>
-                          <option value="Espanhol">Espanhol</option>
-                          <option value="Alemão">Alemão</option>
-                          <option value="Francês">Francês</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Canal Principal</label>
-                        <select
-                          value={newCampaign.searchCriteria?.channel || 'whatsapp'}
-                          onChange={e => setNewCampaign({
-                            ...newCampaign,
-                            searchCriteria: {
-                              ...newCampaign.searchCriteria!,
-                              channel: e.target.value as 'email' | 'whatsapp' | 'telegram' | 'sms'
-                            }
-                          })}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
-                        >
-                          <option value="whatsapp">📱 WhatsApp (Recomendado)</option>
-                          <option value="sms">💬 SMS via Twilio</option>
-                          <option value="telegram">✈️ Telegram Direct</option>
-                          <option value="email">⚠️ E-mail (deduzido via domínio)</option>
-                        </select>
-                        {(newCampaign.searchCriteria?.channel === 'email' || !newCampaign.searchCriteria?.channel) && (
-                          <p className="mt-1.5 text-[10px] text-amber-600 font-medium flex items-center gap-1">
-                            <span>⚠️</span> E-mail deduzido pelo domínio. Pode haver bounces.
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Canal Secundário (Fallback)</label>
-                        <select
-                          value={newCampaign.fallbackChannel || 'none'}
-                          onChange={e => setNewCampaign({
-                            ...newCampaign,
-                            fallbackChannel: e.target.value as 'none' | 'email' | 'whatsapp' | 'telegram' | 'sms'
-                          })}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
-                        >
-                          <option value="none">❌ Nenhum (Não re-disparar)</option>
-                          <option value="whatsapp" disabled={newCampaign.searchCriteria?.channel === 'whatsapp'}>📱 WhatsApp</option>
-                          <option value="sms" disabled={newCampaign.searchCriteria?.channel === 'sms'}>💬 SMS via Twilio</option>
-                          <option value="email" disabled={newCampaign.searchCriteria?.channel === 'email'}>📧 E-mail</option>
-                          <option value="telegram" disabled={newCampaign.searchCriteria?.channel === 'telegram'}>✈️ Telegram Direct</option>
-                        </select>
-                        <p className="mt-1.5 text-[9px] text-slate-400 font-medium leading-normal">
-                          Caso a tentativa no canal principal falhe (ex: número sem WhatsApp ou falha de SMS), o robô tentará enviar pelo meio secundário.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Produtos a Serem Divulgados</label>
-                      <div className="space-y-2 max-h-48 overflow-y-auto pr-2 bg-background border border-border p-3 rounded-xl">
-                        {products.length === 0 ? (
-                           <span className="text-xs text-muted-foreground">Nenhum produto cadastrado.</span>
-                        ) : (
-                          products.map(p => (
-                            <label key={p.id} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                              <input 
-                                type="checkbox"
-                                checked={newCampaign.targetProducts?.includes(p.name)}
-                                onChange={e => {
-                                  const list = newCampaign.targetProducts || [];
-                                  if (e.target.checked) {
-                                    setNewCampaign({...newCampaign, targetProducts: [...list, p.name]});
-                                  } else {
-                                    setNewCampaign({...newCampaign, targetProducts: list.filter(name => name !== p.name)});
-                                  }
-                                }}
-                                className="w-4 h-4 rounded border-border text-indigo-600 focus:ring-indigo-500 bg-background"
-                              />
-                              <span className="text-sm font-semibold text-foreground">{p.name}</span>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex justify-between">
-                        Instruções Especiais / Promoções
-                        <span className="text-indigo-500/70 lowercase font-semibold text-[10px]">Opcional</span>
-                      </label>
-                      <textarea 
-                        rows={2}
-                        value={newCampaign.customInstructions || ''}
-                        onChange={e => setNewCampaign({...newCampaign, customInstructions: e.target.value})}
-                        placeholder="Ex: Estamos na Black Friday, ofereça 50% de desconto usando o cupom BLACK50"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition placeholder:text-slate-400"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Limite Diário</label>
-                        <input
-                          type="number"
-                          value={newCampaign.limitDaily}
-                          onChange={e => setNewCampaign({...newCampaign, limitDaily: parseInt(e.target.value) || 50})}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Frequência</label>
-                        <select
-                          value={newCampaign.frequency}
-                          onChange={e => setNewCampaign({...newCampaign, frequency: e.target.value as 'immediate' | 'daily'})}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-indigo-500 focus:bg-card transition"
-                        >
-                          <option value="immediate">Rodar Agora (1x)</option>
-                          <option value="daily">Job Diário (Autônomo)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Agendador Interno de Horários de Disparo */}
-                    {true && (
-                      <div className="p-5 bg-card/60 border border-border rounded-xl space-y-3">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          🕒 Horários de Execução Automática (Selecione um ou mais)
-                        </label>
-                        <p className="text-[10px] text-muted-foreground font-semibold leading-relaxed">
-                          Escolha as horas do dia em que a campanha será acionada automaticamente pelo servidor (Fuso horário do servidor).
-                        </p>
-                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-1.5">
-                          {Array.from({ length: 24 }, (_, i) => i).map((hour) => {
+                        {/* Show only business hours by default: 6h–22h */}
+                        <div className="grid grid-cols-6 gap-1.5">
+                          {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => {
                             const isSelected = (newCampaign.runHours || []).includes(hour);
                             return (
                               <button
@@ -1744,197 +1692,190 @@ export default function App() {
                                 type="button"
                                 onClick={() => {
                                   const hours = newCampaign.runHours || [];
-                                  if (isSelected) {
-                                    setNewCampaign({
-                                      ...newCampaign,
-                                      runHours: hours.filter(h => h !== hour)
-                                    });
-                                  } else {
-                                    setNewCampaign({
-                                      ...newCampaign,
-                                      runHours: [...hours, hour].sort((a, b) => a - b)
-                                    });
-                                  }
+                                  setNewCampaign({ ...newCampaign, runHours: isSelected ? hours.filter(h => h !== hour) : [...hours, hour].sort((a,b) => a-b) });
                                 }}
-                                className={`py-2 rounded-lg text-xs font-bold transition-all border text-center ${
-                                  isSelected 
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                    : 'bg-background hover:bg-muted text-foreground border-border'
+                                className={`py-1.5 rounded-lg text-[10px] font-bold transition-all border text-center ${
+                                  isSelected ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-muted/30 hover:bg-muted text-muted-foreground border-border/60'
                                 }`}
                               >
-                                {String(hour).padStart(2, '0')}:00
+                                {String(hour).padStart(2,'0')}h
                               </button>
                             );
                           })}
                         </div>
-                        {newCampaign.frequency === 'immediate' && (
-                          <p className="text-[10px] text-amber-500 font-extrabold mt-1.5 flex items-center gap-1">
-                            <span>⚠️</span> Nota: Estes horários serão aplicados somente se a Frequência for alterada para "Job Diário".
+                        {(newCampaign.runHours || []).length > 0 && (
+                          <p className="text-[10px] text-indigo-500 font-bold">
+                            Selecionado: {(newCampaign.runHours || []).map(h => `${String(h).padStart(2,'0')}:00`).join(' · ')}
                           </p>
                         )}
                       </div>
-                    )}
 
-                    <div className="flex gap-3 mt-2">
-                      {editingCampaignId && (
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setEditingCampaignId(null);
-                            setNewCampaign({
-                              name: '',
-                              segment: '',
-                              prospectingArea: { countries: [], states: [], cities: '' },
-                              language: 'Português',
-                              targetProducts: [],
-                              limitDaily: 50,
-                              frequency: 'immediate',
-                              searchCriteria: { channel: 'whatsapp' },
-                              fallbackChannel: 'none',
-                              customInstructions: '',
-                              runHours: [9, 13, 16]
-                            });
-                          }}
-                          className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-850 hover:bg-slate-205 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all duration-200 border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1.5"
-                        >
-                          Cancelar Edição
-                        </button>
-                      )}
-                      <button 
-                        type="submit"
-                        disabled={newCampaign.prospectingArea.countries.length === 0}
-                        className={`py-3.5 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-slate-900/10 flex items-center justify-center gap-1.5 ${
-                          editingCampaignId ? "flex-[2] bg-indigo-600 hover:bg-indigo-700" : "w-full bg-[#0F172A] hover:bg-slate-800"
-                        }`}
-                      >
-                        <Play className="w-3.5 h-3.5 text-white" />
-                        {editingCampaignId ? 'Salvar Alterações' : 'Criar Campanha'}
-                      </button>
-                    </div>
-                  </form>
-                </GlassCard>
-
-                {/* Campaigns List */}
-                <div className="lg:col-span-2 space-y-5">
-                  {campaigns.map(camp => (
-                    <GlassCard key={camp.id} className="p-7 ">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="flex items-center space-x-3">
-                            <h4 className="font-extrabold text-foreground text-sm tracking-wide">{camp.name}</h4>
-                            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border uppercase tracking-wider ${
-                              camp.status === 'running' 
-                                ? 'bg-indigo-50 text-indigo-700 border-indigo-100' 
-                                : camp.status === 'completed'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : camp.status === 'active'
-                                ? 'bg-blue-50 text-blue-700 border-blue-100'
-                                : camp.status === 'paused'
-                                ? 'bg-amber-50 text-amber-700 border-amber-100'
-                                : 'bg-slate-100 text-muted-foreground border-border'
-                            }`}>
-                              {camp.status === 'running' 
-                                ? 'Executando' 
-                                : camp.status === 'completed' 
-                                ? 'Finalizada' 
-                                : camp.status === 'active'
-                                ? 'Ativa (Agendada)'
-                                : camp.status === 'paused'
-                                ? 'Pausada'
-                                : 'Aguardando'}
-                            </span>
-                            <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold border bg-muted/50 text-muted-foreground border-border uppercase tracking-wider">
-                              {camp.sourceType === 'intent_data' ? '💼 Intent' : camp.sourceType === 'social_listening' ? '📡 Social' : '🗺️ Web'}
-                            </span>
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs text-muted-foreground font-semibold">
-                            <span><strong>Segmento:</strong> {camp.segment}</span>
-                            <span><strong>Região:</strong> {buildRegionLabel(camp.prospectingArea)}</span>
-                            <span><strong>Produtos:</strong> {camp.targetProducts?.length > 0 ? camp.targetProducts.join(', ') : 'Nenhum (Geral)'}</span>
-                            <span><strong>Canal Principal:</strong> {camp.searchCriteria?.channel ? camp.searchCriteria.channel.toUpperCase() : 'WHATSAPP'}</span>
-                            {camp.fallbackChannel && camp.fallbackChannel !== 'none' && (
-                              <span><strong>Fallback:</strong> <span className="text-indigo-650 font-black uppercase">{camp.fallbackChannel}</span></span>
-                            )}
-                            {camp.frequency === 'daily' && (
-                               <span className="w-full mt-1.5 flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
-                                 <strong>🕒 Agendamentos de Disparo:</strong> {camp.runHours && camp.runHours.length > 0 ? camp.runHours.map(h => `${String(h).padStart(2, '0')}:00`).join(', ') : 'Nenhum'}
-                               </span>
-                             )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          {(camp.status === 'idle' || camp.status === 'paused') && (
-                            <button 
-                              onClick={() => startCampaign(camp.id)}
-                              title="Iniciar campanha"
-                              className="flex items-center justify-center p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition"
-                            >
-                              <Play className="w-4 h-4 text-white fill-white" />
-                            </button>
-                          )}
-
-                          {(camp.status === 'active' || camp.status === 'running') && (
-                            <button 
-                              onClick={() => stopCampaign(camp.id)}
-                              title="Pausar campanha"
-                              className="flex items-center justify-center p-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition"
-                            >
-                              <Pause className="w-4 h-4 text-white fill-white" />
-                            </button>
-                          )}
-
-                          {camp.status !== 'running' && (
-                            <button 
-                              onClick={() => runCampaignNow(camp.id)}
-                              title="Rodar agora (Execução manual)"
-                              className="flex items-center justify-center p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition"
-                            >
-                              <Zap className="w-4 h-4 text-white fill-white" />
-                            </button>
-                          )}
-
-                          <button 
-                            onClick={() => handleEditCampaign(camp)}
-                            title="Editar campanha"
-                            className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-550 rounded-lg shadow-sm transition"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-
-                          <button 
-                            onClick={() => deleteCampaign(camp.id)}
-                            title="Excluir campanha"
-                            className="flex items-center justify-center p-2.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 border border-slate-200 text-slate-500 hover:border-red-200 rounded-lg shadow-sm transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                      {/* Section 6: Custom Instructions */}
+                      <div className="px-6 py-5 space-y-3">
+                        <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">06 · Instruções Especiais <span className="text-muted-foreground font-medium normal-case tracking-normal">(Opcional)</span></p>
+                        <textarea
+                          rows={2}
+                          value={newCampaign.customInstructions || ''}
+                          onChange={e => setNewCampaign({...newCampaign, customInstructions: e.target.value})}
+                          placeholder="Ex: Estamos na Black Friday, ofereça 50% com cupom BLACK50"
+                          className="w-full bg-muted/30 border border-border/60 rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-indigo-500 transition placeholder:text-muted-foreground/50 font-medium resize-none"
+                        />
                       </div>
 
-                      {/* Progress bar / AI output */}
-                      {(camp.status === 'running' || camp.status === 'completed') && (
-                        <div className="mt-6 pt-4 border-t border-slate-100">
-                          <div className="flex justify-between text-xs text-muted-foreground mb-2.5 font-bold">
-                            <span className="flex items-center space-x-1.5 text-indigo-600">
-                              {camp.status === 'running' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                              <span>{camp.currentStep}</span>
-                            </span>
-                            <span>{camp.progress}%</span>
-                          </div>
-                          <ProgressBar value={camp.progress} color={camp.status === 'completed' ? '#10b981' : '#6366f1'} />
-                        </div>
-                      )}
+                      {/* Action Buttons */}
+                      <div className="px-6 py-4 bg-muted/20 flex gap-2.5">
+                        {editingCampaignId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingCampaignId(null);
+                              setNewCampaign({ name: '', segment: '', prospectingArea: { countries: [], states: [], cities: '' }, language: 'Português', targetProducts: [], limitDaily: 50, frequency: 'immediate', searchCriteria: { channel: 'whatsapp' }, fallbackChannel: 'none', customInstructions: '', runHours: [9, 13, 16], sourceType: 'web_scraping' });
+                            }}
+                            className="flex-1 py-3 bg-background border border-border text-muted-foreground rounded-xl text-xs font-bold transition hover:bg-muted"
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={newCampaign.prospectingArea.countries.length === 0}
+                          className="flex-[2] py-3 disabled:opacity-40 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/25 flex items-center justify-center gap-1.5"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-white" />
+                          {editingCampaignId ? 'Salvar Alterações' : 'Criar Campanha'}
+                        </button>
+                      </div>
+
+                    </form>
+                  </GlassCard>
+                </div>
+
+                {/* ─── RIGHT: Campaign Cards ──────────────────── */}
+                <div className="lg:col-span-3 space-y-4">
+                  {campaigns.length === 0 ? (
+                    <GlassCard className="p-12 text-center">
+                      <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <Zap className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm font-bold text-foreground">Nenhuma campanha criada</p>
+                      <p className="text-xs text-muted-foreground mt-1 font-medium">Configure sua primeira campanha no painel ao lado.</p>
                     </GlassCard>
-                  ))}
+                  ) : (
+                    campaigns.map(camp => {
+                      const sourceIcon = camp.sourceType === 'intent_data' ? '💼' : camp.sourceType === 'social_listening' ? '📡' : '🗺️';
+                      const sourceLabel = camp.sourceType === 'intent_data' ? 'Intent' : camp.sourceType === 'social_listening' ? 'Social' : 'Web';
+                      const statusColors: Record<string, string> = {
+                        running: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
+                        completed: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+                        active: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+                        paused: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+                        idle: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700',
+                      };
+                      const statusLabel: Record<string, string> = { running: 'Executando', completed: 'Finalizada', active: 'Agendada', paused: 'Pausada', idle: 'Aguardando' };
+                      return (
+                        <GlassCard key={camp.id} className={`overflow-hidden transition-all duration-300 ${camp.status === 'running' ? 'ring-1 ring-indigo-500/30' : ''}`}>
+                          {/* Card top bar — colored accent by status */}
+                          <div className={`h-1 w-full ${camp.status === 'running' ? 'bg-indigo-500' : camp.status === 'active' ? 'bg-blue-500' : camp.status === 'completed' ? 'bg-emerald-500' : camp.status === 'paused' ? 'bg-amber-500' : 'bg-border'}`} />
+
+                          <div className="p-5">
+                            {/* Header row */}
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-sm font-black text-foreground tracking-tight truncate">{camp.name}</h4>
+                                  <span className={`shrink-0 text-[9.5px] px-2 py-0.5 rounded-full font-black border uppercase tracking-wider ${statusColors[camp.status] || statusColors.idle}`}>
+                                    {camp.status === 'running' && <span className="inline-block w-1.5 h-1.5 bg-current rounded-full mr-1 animate-pulse" />}
+                                    {statusLabel[camp.status] || camp.status}
+                                  </span>
+                                  <span className="shrink-0 text-[9.5px] px-2 py-0.5 rounded-full font-bold border border-border bg-muted/50 text-muted-foreground uppercase">
+                                    {sourceIcon} {sourceLabel}
+                                  </span>
+                                </div>
+
+                                {/* Meta info — compact pills row */}
+                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2.5">
+                                  <span className="text-[10.5px] text-muted-foreground font-medium flex items-center gap-1">
+                                    <span className="text-muted-foreground/50">Segmento</span>
+                                    <span className="text-foreground font-semibold">{camp.segment}</span>
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground/40 font-medium">·</span>
+                                  <span className="text-[10.5px] text-muted-foreground font-medium flex items-center gap-1">
+                                    <span className="text-muted-foreground/50">Canal</span>
+                                    <span className="text-foreground font-bold uppercase">{camp.searchCriteria?.channel || 'WhatsApp'}</span>
+                                  </span>
+                                  {buildRegionLabel(camp.prospectingArea) && (
+                                    <>
+                                      <span className="text-[10px] text-muted-foreground/40 font-medium">·</span>
+                                      <span className="text-[10.5px] text-muted-foreground font-medium flex items-center gap-1">
+                                        <span className="text-muted-foreground/50">Região</span>
+                                        <span className="text-foreground font-semibold">{buildRegionLabel(camp.prospectingArea)}</span>
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Schedule pill */}
+                                {camp.frequency === 'daily' && camp.runHours && camp.runHours.length > 0 && (
+                                  <div className="mt-2 flex items-center gap-1.5">
+                                    <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 border border-indigo-200/50 dark:border-indigo-800/50 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">🕒 Automático</span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">
+                                      {camp.runHours.map(h => `${String(h).padStart(2,'0')}:00`).join(' · ')}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Action buttons — vertical stack */}
+                              <div className="flex gap-1.5 shrink-0">
+                                {(camp.status === 'idle' || camp.status === 'paused') && (
+                                  <button onClick={() => startCampaign(camp.id)} title="Iniciar" className="w-8 h-8 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition">
+                                    <Play className="w-3.5 h-3.5 fill-white" />
+                                  </button>
+                                )}
+                                {(camp.status === 'active' || camp.status === 'running') && (
+                                  <button onClick={() => stopCampaign(camp.id)} title="Pausar" className="w-8 h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition">
+                                    <Pause className="w-3.5 h-3.5 fill-white" />
+                                  </button>
+                                )}
+                                {camp.status !== 'running' && (
+                                  <button onClick={() => runCampaignNow(camp.id)} title="Rodar agora" className="w-8 h-8 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition">
+                                    <Zap className="w-3.5 h-3.5 fill-white" />
+                                  </button>
+                                )}
+                                <button onClick={() => handleEditCampaign(camp)} title="Editar" className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-muted/80 border border-border text-foreground rounded-lg shadow-sm transition">
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => deleteCampaign(camp.id)} title="Excluir" className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 border border-border hover:border-red-200 text-muted-foreground rounded-lg shadow-sm transition">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            {(camp.status === 'running' || camp.status === 'completed') && (
+                              <div className="mt-4 pt-4 border-t border-border/50">
+                                <div className="flex justify-between text-[10px] text-muted-foreground mb-1.5 font-bold">
+                                  <span className="flex items-center gap-1.5 text-indigo-500">
+                                    {camp.status === 'running' && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    {camp.currentStep}
+                                  </span>
+                                  <span>{camp.progress}%</span>
+                                </div>
+                                <ProgressBar value={camp.progress} color={camp.status === 'completed' ? '#10b981' : '#6366f1'} />
+                              </div>
+                            )}
+                          </div>
+                        </GlassCard>
+                      );
+                    })
+                  )}
                 </div>
 
               </div>
-
             </div>
           )}
 
+          {/* CRM PIPELINE TAB */}
           {/* CRM PIPELINE TAB */}
           {activeTab === 'crm' && (
             <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
