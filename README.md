@@ -1,61 +1,179 @@
-# Scoutly AI - B2B Autonomous SDR Team 🚀
+# Scoutly AI — Autonomous B2B SDR Platform 🚀
 
-O **Scoutly** é uma plataforma avançada de automação de prospecção B2B (Outbound). Evoluiu de um simples CRM com automação de disparos para um sistema **Multi-Agent** (Equipe de Inteligência Artificial) capaz de buscar leads, raspar sites, entender as dores das empresas e redigir copies de altíssima conversão de forma 100% autônoma.
+> **The AI-powered outbound engine that finds leads, analyzes their websites, writes hyper-personalized messages, and fires them — all on its own.**
 
-Construído para apoiar as vendas da **Vysify**.
+Scoutly is a full-stack B2B sales automation platform. It has evolved from a simple CRM with message scheduling into a **multi-agent AI system** capable of sourcing leads from multiple channels, enriching them with real-time website intelligence, scoring them, crafting high-conversion copy in any language, and delivering outreach across WhatsApp, SMS, Telegram, and email — autonomously.
+
+Built to power **Vysify's** outbound sales at scale.
 
 ---
 
-## 🏗️ Arquitetura do Sistema (V3.1)
+## 🏗️ System Architecture (V3.0)
 
-O Scoutly opera com um modelo de **Agentes de IA** independentes (no Backend Node.js) que formam um pipeline de processamento de Leads.
+Scoutly runs a **pipeline of independent AI agents** on the Node.js backend. Each campaign is routed through this pipeline automatically based on its configured **Source Type**.
 
-### A Equipe de IA (Agentes)
-1. **🔍 Research Agent (Provider Interface)**: Agnóstico a provedores. Procura leads usando integrações (Google Maps, Apollo, etc) e cruza as buscas combinando segmentação, idioma e região estritamente definidos na Campanha.
-2. **🧠 Company Intelligence Agent**: Visita o site da empresa prospectada, faz scraping (Cheerio) do HTML e gera um dossiê resumido sobre o que a empresa faz, diferenciais e ICP.
-3. **🩺 Pain Finder Agent**: Analisa o dossiê e utiliza metodologias de vendas (SPIN Selling) para levantar 3 dores prováveis do Lead.
-4. **⚖️ Scoring Agent (Rule Engine + AI)**: Mistura critérios absolutos (tamanho da empresa, se usa WhatsApp) com o parecer da IA para gerar o *Lead Score* e a **AI Strategy** (Tese de Investimento no Lead).
-5. **✍️ Copywriter Agent**: Absorve as dores mapeadas, a Estratégia B2B e as características do **Produto Ofertado** para redigir um e-mail de prospecção hiper-personalizado no idioma escolhido.
-6. **🧠 Memory Agent (RAG Local)**: Avalia feedbacks das mensagens enviadas (Reuniões Fechadas) extraindo "Regras de Ouro" de persuasão que passam a ser utilizadas obrigatoriamente pelos Copywriters no futuro (Self-Learning).
+```
+Lead Source → Scanner → Website Intelligence → Scoring → Copywriter → Outreach → CRM
+```
 
-### Cérebro Internacional & Segurança de Chaves
-As configurações críticas do sistema evoluíram para permitir Múltiplos Inquilinos de forma segura:
-* O Front-end agora salva as **API Keys** (OpenAI, Resend) diretamente no Banco de Dados SQLite interno. Os Agentes inicializam suas mentes carregando a chave do banco dinamicamente, abandonando dependência exclusiva de `.env`.
-* O Motor permite a internacionalização completa. Ao rodar campanhas para o mercado exterior, os robôs obedecerão o Idioma exigido de forma nativa.
+### The AI Agent Team
+
+| Agent | Role |
+|-------|------|
+| 🔍 **Research Agent** | Provider-agnostic lead sourcer. Queries Google Maps and Apollo using the campaign's segment, region, and language settings. |
+| 🕷️ **Job Scanner** | Scans public job listings (LinkedIn, Gupy, Indeed) for companies hiring Sales, Support, or CS roles — a real buying-intent signal. |
+| 📡 **Social Listening Scanner** | Monitors communities (HackerNews "Ask HN") for posts mentioning CRM pain points and support frustrations. |
+| 🧠 **Website Intelligence Agent** | Visits each prospect's website, runs Cheerio scraping, and detects: active CRM (HubSpot/Salesforce), WhatsApp presence, e-commerce platform, and tech stack. |
+| 🩺 **Pain Finder Agent** | Analyzes the website intelligence dossier and applies SPIN Selling methodology to surface 3 likely pain points per lead. |
+| ⚖️ **Scoring Agent** | Combines rule-based criteria (company size, WhatsApp presence) with AI judgment to produce a **Lead Score** and **AI Investment Thesis**. |
+| ✍️ **Copywriter Agent** | Ingests mapped pains, the B2B strategy, website analysis, and the offered product to craft a hyper-personalized outreach message in the campaign's language. |
+| 🧠 **Memory Agent (RAG)** | Extracts "Golden Rules" from closed-deal feedback and injects them into future Copywriter prompts — enabling self-learning over time. |
+
+---
+
+## 🎯 Lead Source Modes
+
+Campaigns can be configured with three distinct sourcing strategies:
+
+### 🗺️ Web Scraping (Google Maps)
+Classic outbound prospecting. Searches Google Maps for businesses matching the target segment and region, then pipes them through the full enrichment pipeline.
+
+### 💼 Intent Data (Job Listings)
+**Signal-based prospecting.** The Job Scanner looks for companies actively hiring Sales, Customer Success, or Support roles — a strong signal they need outreach automation tools. Each lead is enriched with website analysis before AI copywriting.
+
+### 📡 Social Listening (HackerNews)
+Monitors tech communities for posts describing CRM or customer support frustrations. The AI generates contextually relevant, conversation-starter replies — not cold pitches.
+
+---
+
+## 📋 Core Features
+
+- **Autonomous Campaigns** — Create a campaign, configure it once, let it run on a cron schedule
+- **Multi-Channel Outreach** — WhatsApp (Evolution API), SMS (Twilio), Telegram, Email (Resend)
+- **Fallback Channel** — If the primary channel fails, automatically retry on a secondary one
+- **Configurable Send Hours** — Choose exactly which hours of the day the scheduler fires
+- **Real-Time CRM Pipeline** — Kanban board with lead stages: Found → Enriched → Sent → Opened → Responded → Booked → Lost
+- **Outreach Logs** — Full history of every message sent, channel used, and delivery status
+- **Intent Radar** — Live view of all intent-detected companies from job listing scans
+- **AI Memory (Self-Learning)** — Closed deals teach the AI what messaging patterns work best
+- **Multi-Product Support** — Define multiple products; each campaign targets specific ones
+- **Geo-Targeting** — Country, state, and city level targeting with auto-language detection
+- **PWA Ready** — Installable Progressive Web App with push notification support
+- **Dark/Light Mode** — Full theme switching with local persistence
 
 ---
 
 ## 💻 Tech Stack
-- **Frontend**: React, TypeScript, TailwindCSS, Vite (Dashboard animado e Interface de Configurações).
-- **Backend**: Node.js, Express, SQLite (Tabelas: campanhas, produtos, tenant_profiles, api_keys, ai_memory).
-- **Automação & IA**: OpenAI SDK (GPT-4o/mini), Cheerio + Axios (Scraping), Node-Cron.
-- **Disparos**: Resend (SMTP / E-mails), APIs customizadas de WhatsApp.
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 18, TypeScript, Vite, TailwindCSS, PWA (vite-plugin-pwa) |
+| **Backend** | Node.js, Express.js, SQLite (better-sqlite3) |
+| **AI** | OpenAI SDK (GPT-4o / GPT-4o-mini), configurable per campaign |
+| **Scraping** | Cheerio + Axios (website analysis), node-cron (job scheduler) |
+| **Outreach** | Resend (email), Evolution API (WhatsApp), Twilio (SMS), Telegram Bot API |
+| **Lead Sources** | Google Maps API, Apollo.io API, Public job boards (Gupy, LinkedIn, Indeed) |
+| **Database** | SQLite — tables: `campaigns`, `leads`, `products`, `tenant_profiles`, `api_keys`, `ai_memory`, `outreach_logs` |
 
 ---
 
-## 🚀 Como Executar Localmente
+## 🚀 Getting Started
 
-### 1. Inicializando o Motor (Backend)
-Vá para a pasta `backend`, instale e inicie o motor. (Não é mais necessário criar arquivo `.env` para as chaves principais de inteligência, você pode configurá-las direto pela tela da aplicação).
+### Prerequisites
+- Node.js 18+
+- npm
+
+### 1. Start the Backend Engine
+
 ```bash
 cd backend
 npm install
 node server.js
 ```
-*(Na primeira execução, o arquivo `scoutly.db` será criado e estruturado).*
 
-### 2. Rodando a Interface (Frontend)
-Em outro terminal:
+> On first run, `scoutly.db` is created and all tables are initialized automatically. No `.env` file required for core AI keys — configure everything via the UI.
+
+### 2. Start the Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-👉 Acesse a aba de **Configurações** na plataforma e digite suas credenciais (OpenAI, Resend) para que os agentes saiam do modo `[MOCK]` (Simulação) e ganhem vida real.
+
+Access the app at **http://localhost:5173**
+
+### 3. Configure API Keys
+
+Go to **Settings** in the platform and enter your credentials:
+
+| Key | Purpose |
+|-----|---------|
+| OpenAI API Key | AI agents (copywriting, scoring, pain analysis) |
+| Google Maps API Key | Web scraping lead source |
+| Apollo API Key | Contact enrichment |
+| Evolution API URL + Key | WhatsApp outreach |
+| Twilio SID + Token | SMS outreach |
+| Resend API Key | Email outreach |
+| Telegram Bot Token | Telegram outreach |
+
+> Once keys are saved, agents exit `[MOCK]` simulation mode and operate in real time.
 
 ---
 
-## 🌟 O Futuro (V4 Roadmap)
-- Múltiplas contas SMTP nativas para escalabilidade de cold email.
-- Webhooks para leitura automática de respostas (o Agente passará a ler os e-mails recebidos, classificar intenção e enviar Calendly sozinho, retroalimentando o Memory Agent).
-- Integração nativa de WhatsApp Massivo.
+## 📁 Project Structure
+
+```
+scoutly/
+├── backend/
+│   ├── server.js          # Express API + route definitions
+│   ├── database.js        # SQLite setup & schema migrations
+│   ├── engine.js          # Campaign orchestrator + cron scheduler
+│   ├── ai.js              # All AI agent logic (OpenAI calls)
+│   └── utils/
+│       ├── JobScanner.js        # Intent data scanner (job listings)
+│       ├── SocialScanner.js     # Social listening scanner (HackerNews)
+│       └── WebsiteAnalyzer.js   # Cheerio-based tech stack detector
+├── frontend/
+│   ├── src/
+│   │   └── App.tsx        # Full React SPA (3,400+ lines)
+│   └── public/            # PWA assets, manifest, icons
+└── README.md
+```
+
+---
+
+## 🔄 Campaign Pipeline (How It Works)
+
+```mermaid
+graph LR
+    A[Campaign Config] --> B{Source Type}
+    B -->|web_scraping| C[Google Maps]
+    B -->|intent_data| D[Job Scanner]
+    B -->|social_listening| E[Social Scanner]
+    C --> F[Website Analyzer]
+    D --> F
+    E --> G[AI Reply Generator]
+    F --> H[Pain Finder]
+    H --> I[Scoring Agent]
+    I --> J[Copywriter Agent]
+    J --> K[Outreach Dispatcher]
+    K --> L[CRM / Outreach Logs]
+```
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Multiple SMTP accounts for cold email at scale
+- [ ] Webhook receiver to auto-read replies, classify intent, and send Calendly links
+- [ ] A/B testing module — split leads across prompt variants and track conversion
+- [ ] Native WhatsApp bulk messaging integration
+- [ ] Multi-tenant support for agencies running Scoutly for multiple clients
+- [ ] LinkedIn DM outreach via cookie-based session
+
+---
+
+## 📄 License
+
+MIT License — built with ❤️ for the Vysify sales team.
